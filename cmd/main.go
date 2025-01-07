@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"my-tshirt-shop/internal/config"
 	"my-tshirt-shop/internal/pkg/psql"
 
 	"github.com/gin-gonic/gin"
@@ -21,16 +22,12 @@ func startApp() {
 
 func main() {
 
-	cfg := &psql.Config{
-		Host:     "host",
-		Port:     "5432",
-		User:     "salavat",
-		Password: "salavat",
-		DBName:   "shop",
-		SSLMode:  "disable",
+	cfg, err := config.NewAppConfig()
+	if err != nil {
+		panic(err)
 	}
 
-	db, err := psql.NewDB(cfg)
+	db, err := psql.NewDB(cfg.DBConfig)
 	if err != nil {
 		log.Fatalf("Error connecting to the database: %v", err)
 	}

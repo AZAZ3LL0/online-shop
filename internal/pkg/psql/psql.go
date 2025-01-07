@@ -11,9 +11,9 @@ type Config struct {
 	Host     string `yaml:"host"`
 	Port     string `yaml:"port"`
 	User     string `yaml:"user"`
+	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
 	SSLMode  string `yaml:"sslmode"`
-	Password string `yaml:"password"`
 }
 
 func NewDB(cfg *Config) (*sqlx.DB, error) {
@@ -22,12 +22,9 @@ func NewDB(cfg *Config) (*sqlx.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	err = db.Ping()
-
 	if err != nil {
 		return nil, err
 	}
-
 	return db, nil
 }
