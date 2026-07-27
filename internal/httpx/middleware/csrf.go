@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -23,6 +25,9 @@ const (
 )
 
 const csrfTTL = 12 * time.Hour
+
+// maxFormBytes caps how much of a form body is read to find the token.
+const maxFormBytes = 1 << 20
 
 // CSRF implements double submit cookie plus an Origin check, tech.md §9.3.
 // Webhooks are excluded: they carry HMAC signatures instead and never see a
@@ -93,12 +98,35 @@ func sameOrigin(r *http.Request, baseURL string) bool {
 func validToken(r *http.Request, want string) bool {
 	got := r.Header.Get(HeaderCSRF)
 	if got == "" {
-		if err := r.ParseForm(); err != nil {
-			return false
-		}
-		got = r.PostForm.Get(FieldCSRF)
+		got = tokenFromBody(r)
+	}
+	if got == "" || want == "" {
+		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
+// tokenFromBody reads the token out of a form body and puts the body back for
+// the handler. http.Request.ParseForm only reads the body for POST, PUT and
+// PATCH, so DELETE has to be handled here.
+func tokenFromBody(r *http.Request) string {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		return ""
+	}
+	if r.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxFormBytes))
+	if err != nil {
+		return ""
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		return ""
+	}
+	return values.Get(FieldCSRF)
 }
 
 func randomToken() string {

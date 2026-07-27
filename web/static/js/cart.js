@@ -11,7 +11,10 @@ document.addEventListener("alpine:init", () => {
       const response = await fetch(form.action, {
         method: override || form.method || "POST",
         body: new URLSearchParams(data),
-        headers: { "X-Requested-With": "fetch" },
+        headers: {
+          "X-Requested-With": "fetch",
+          "X-CSRF-Token": data.get("csrf_token") || "",
+        },
       });
 
       const html = await response.text();

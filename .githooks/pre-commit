@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+# Local gate: the same checks the pull request runs, minus the ones that need a
+# database. Install once with: git config core.hooksPath .githooks
+set -eu
+
+fail() {
+	echo "pre-commit: $1" >&2
+	exit 1
+}
+
+# Shared files are only touched in an architecture session, SKELETON.md §2.
+protected='^(tech\.md|SKELETON\.md|TASKS\.md|CLAUDE\.md|internal/money/|internal/domain/[^/]+/types\.go|migrations/|web/templates/components/|web/templates/layout\.templ)'
+branch=$(git rev-parse --abbrev-ref HEAD)
+case "$branch" in
+feat/* | fix/*)
+	touched=$(git diff --cached --name-only | grep -E "$protected" || true)
+	if [ -n "$touched" ]; then
+		echo "pre-commit: warning, shared files touched on a feature branch:" >&2
+		echo "$touched" | sed 's/^/  /' >&2
+		echo "pre-commit: allowed only when the task in TASKS.md names them; re-run with SKIP_SHARED_CHECK=1 to confirm." >&2
+		[ "${SKIP_SHARED_CHECK:-0}" = "1" ] || exit 1
+	fi
+	;;
+esac
+
+unformatted=$(gofmt -l . | grep -v '_templ\.go$' || true)
+[ -z "$unformatted" ] || fail "gofmt: $unformatted"
+
+command -v templ >/dev/null 2>&1 || fail "templ is not installed, run make tools"
+templ generate >/dev/null
+git diff --quiet -- '*_templ.go' || fail "templ output is stale, add the regenerated files"
+
+go vet ./... || fail "go vet failed"
+
+if command -v golangci-lint >/dev/null 2>&1; then
+	golangci-lint run || fail "golangci-lint failed"
+fi
+
+go test ./... -race || fail "tests failed"

@@ -58,24 +58,30 @@ func (s *Signer) Get(r *http.Request, name string) (string, bool) {
 	return s.verify(c.Value)
 }
 
+// sign encodes the payload before signing it: a cookie value may not contain
+// quotes, commas or spaces, and the first-touch cookie carries JSON.
 func (s *Signer) sign(value string) string {
-	return value + "." + base64.RawURLEncoding.EncodeToString(s.mac(value))
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(value))
+	return encoded + "." + base64.RawURLEncoding.EncodeToString(s.mac(value))
 }
 
 func (s *Signer) verify(signed string) (string, bool) {
-	idx := strings.LastIndex(signed, ".")
-	if idx < 0 {
+	encoded, sig, ok := strings.Cut(signed, ".")
+	if !ok {
 		return "", false
 	}
-	value, sig := signed[:idx], signed[idx+1:]
+	raw, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", false
+	}
 	got, err := base64.RawURLEncoding.DecodeString(sig)
 	if err != nil {
 		return "", false
 	}
-	if !hmac.Equal(got, s.mac(value)) {
+	if !hmac.Equal(got, s.mac(string(raw))) {
 		return "", false
 	}
-	return value, true
+	return string(raw), true
 }
 
 func (s *Signer) mac(value string) []byte {
