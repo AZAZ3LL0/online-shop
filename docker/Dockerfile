@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # Build stage: Tailwind -> templ -> go build, exactly the order of tech.md §10.1.
 FROM golang:1.25-bookworm AS build
 
