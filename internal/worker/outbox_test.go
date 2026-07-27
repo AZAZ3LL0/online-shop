@@ -2,8 +2,8 @@ package worker_test
 
 import (
 	"context"
-	"log/slog"
 	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"

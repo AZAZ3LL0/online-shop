@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,13 +66,6 @@ func ts(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
-func nullTS(t *time.Time) pgtype.Timestamptz {
-	if t == nil {
-		return pgtype.Timestamptz{}
-	}
-	return ts(*t)
-}
-
 func nullString(s string) *string {
 	if s == "" {
 		return nil
@@ -79,11 +73,17 @@ func nullString(s string) *string {
 	return &s
 }
 
-func str(p *string) string {
-	if p == nil {
-		return ""
+// int32of narrows an int for a Postgres integer column, clamping instead of
+// wrapping around. Every caller passes an already validated small number; the
+// clamp only exists so no conversion can silently overflow.
+func int32of(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
 	}
-	return *p
+	if n < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(n)
 }
 
 func toUUID(v pgtype.UUID) *uuid.UUID {

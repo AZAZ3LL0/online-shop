@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"runtime"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -21,6 +20,7 @@ var ErrMismatch = errors.New("auth: password mismatch")
 const (
 	timeCost   = 3
 	memoryCost = 64 * 1024
+	threads    = 4
 	keyLen     = 32
 	saltLen    = 16
 )
@@ -31,7 +31,6 @@ func Hash(password string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("auth: read salt: %w", err)
 	}
-	threads := uint8(min(runtime.NumCPU(), 4))
 	key := argon2.IDKey([]byte(password), salt, timeCost, memoryCost, threads, keyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, memoryCost, timeCost, threads,
@@ -52,8 +51,8 @@ func Verify(password, encoded string) error {
 		return fmt.Errorf("auth: parse hash version: %w", err)
 	}
 	var memory, time uint32
-	var threads uint8
-	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &time, &threads); err != nil {
+	var parallelism uint8
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &time, &parallelism); err != nil {
 		return fmt.Errorf("auth: parse hash params: %w", err)
 	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
@@ -65,7 +64,10 @@ func Verify(password, encoded string) error {
 		return fmt.Errorf("auth: decode key: %w", err)
 	}
 
-	got := argon2.IDKey([]byte(password), salt, time, memory, threads, uint32(len(want)))
+	if len(want) != keyLen {
+		return fmt.Errorf("auth: unexpected key length %d", len(want))
+	}
+	got := argon2.IDKey([]byte(password), salt, time, memory, parallelism, keyLen)
 	if subtle.ConstantTimeCompare(got, want) != 1 {
 		return ErrMismatch
 	}

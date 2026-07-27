@@ -1,6 +1,6 @@
 module github.com/qzq-kiim/shop
 
-go 1.25.7
+go 1.25.12
 
 require (
 	github.com/a-h/templ v0.3.898

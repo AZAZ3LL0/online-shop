@@ -13,13 +13,13 @@ type EventType string
 
 // Event types, tech.md §4 (events.type).
 const (
-	EventPageView         EventType = "page_view"
-	EventProductView      EventType = "product_view"
-	EventAddToCart        EventType = "add_to_cart"
-	EventRemoveFromCart   EventType = "remove_from_cart"
-	EventCheckoutStarted  EventType = "checkout_started"
-	EventPaymentCreated   EventType = "payment_created"
-	EventOrderPaid        EventType = "order_paid"
+	EventPageView        EventType = "page_view"
+	EventProductView     EventType = "product_view"
+	EventAddToCart       EventType = "add_to_cart"
+	EventRemoveFromCart  EventType = "remove_from_cart"
+	EventCheckoutStarted EventType = "checkout_started"
+	EventPaymentCreated  EventType = "payment_created"
+	EventOrderPaid       EventType = "order_paid"
 )
 
 // Touch is one attribution snapshot, stored as jsonb in orders.first_touch and

@@ -69,7 +69,7 @@ func (r *CartRepo) AddItem(ctx context.Context, cartID, variantID uuid.UUID, qty
 	err := r.q.InsertCartItem(ctx, sqlcgen.InsertCartItemParams{
 		CartID:    cartID,
 		VariantID: variantID,
-		Qty:       int32(qty),
+		Qty:       int32of(qty),
 	})
 	if err != nil {
 		return fmt.Errorf("insert cart item: %w", err)
@@ -100,7 +100,7 @@ func (r *CartRepo) SetQty(ctx context.Context, cartID, itemID uuid.UUID, qty int
 	n, err := r.q.UpdateCartItemQty(ctx, sqlcgen.UpdateCartItemQtyParams{
 		CartID: cartID,
 		ID:     itemID,
-		Qty:    int32(qty),
+		Qty:    int32of(qty),
 	})
 	if err != nil {
 		return fmt.Errorf("update cart item qty: %w", err)

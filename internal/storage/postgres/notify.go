@@ -40,7 +40,7 @@ func (r *NotifyRepo) Enqueue(ctx context.Context, n notify.Notification, dedupKe
 func (r *NotifyRepo) ClaimDue(ctx context.Context, now time.Time, limit int) ([]notify.Notification, error) {
 	rows, err := r.q.ClaimDueNotifications(ctx, sqlcgen.ClaimDueNotificationsParams{
 		NextAttemptAt: ts(now),
-		Limit:         int32(limit),
+		Limit:         int32of(limit),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("claim due notifications: %w", err)

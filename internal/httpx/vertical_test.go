@@ -3,7 +3,6 @@ package httpx_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -347,5 +346,4 @@ func TestHealthzAndSecurityHeaders(t *testing.T) {
 	if resp.Header.Get(middleware.HeaderRequestID) == "" {
 		t.Error("no request id on the response")
 	}
-	fmt.Fprint(io.Discard, "")
 }

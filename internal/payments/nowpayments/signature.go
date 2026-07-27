@@ -47,7 +47,7 @@ func Sign(secret, rawBody []byte) (string, error) {
 func verifySignature(secret, rawBody []byte, signature string) error {
 	want, err := Sign(secret, rawBody)
 	if err != nil {
-		return fmt.Errorf("%w: %s", payment.ErrInvalidSignature, err)
+		return fmt.Errorf("%w: %w", payment.ErrInvalidSignature, err)
 	}
 	got, err := hex.DecodeString(signature)
 	if err != nil {

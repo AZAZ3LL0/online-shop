@@ -99,7 +99,7 @@ func (s *Seeder) seedCatalog(ctx context.Context, now time.Time) error {
 			Currency:    "USD",
 			ImageFront:  p.imageFront,
 			ImageBack:   p.imageBack,
-			SortOrder:   int32(i),
+			SortOrder:   int32of(i),
 		})
 		if err != nil {
 			return fmt.Errorf("insert product %s: %w", p.slug, err)
@@ -135,7 +135,9 @@ func (s *Seeder) seedTraffic(ctx context.Context, now time.Time, variants []sqlc
 	if len(variants) == 0 {
 		return nil
 	}
-	rng := rand.New(rand.NewSource(20260727))
+	// Demo data must be reproducible, so the seed is fixed. Nothing here
+	// protects anything; real tokens come from crypto/rand.
+	rng := rand.New(rand.NewSource(20260727)) //nolint:gosec // deterministic demo data
 	var orderSeq int
 
 	for day := 30; day >= 1; day-- {
@@ -217,7 +219,7 @@ func (s *Seeder) insertPaidOrder(
 	seq int,
 ) error {
 	v := variants[rng.Intn(len(variants))]
-	qty := int32(rng.Intn(2) + 1)
+	qty := int32of(rng.Intn(2) + 1)
 	subtotal := v.PriceCents * int64(qty)
 
 	tj, err := json.Marshal(touch)
