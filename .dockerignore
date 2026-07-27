@@ -1,0 +1,5 @@
+.git
+.github
+.env
+bin/
+web/static/css/app.css

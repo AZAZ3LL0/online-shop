@@ -1,0 +1,112 @@
+package shop
+
+import (
+	"context"
+	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+
+	"github.com/a-h/templ"
+	"github.com/google/uuid"
+
+	"github.com/qzq-kiim/shop/internal/domain/cart"
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
+	"github.com/qzq-kiim/shop/web/templates/pages"
+)
+
+// ensureCart resolves the cart from the signed cookie, creating one when the
+// cookie is missing or points at a cart that no longer exists.
+func (h *Handler) ensureCart(w http.ResponseWriter, r *http.Request) (uuid.UUID, error) {
+	var current *uuid.UUID
+	if raw, ok := h.cookies.Get(r, CookieCart); ok {
+		if id, err := uuid.Parse(raw); err == nil {
+			current = &id
+		}
+	}
+	var visitorID *uuid.UUID
+	if touch, ok := reqctx.Touch(r.Context()); ok {
+		visitorID = &touch.VisitorID
+	}
+
+	cartID, err := h.carts.EnsureCart(r.Context(), current, visitorID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if current == nil || *current != cartID {
+		h.cookies.Set(w, CookieCart, cartID.String(), cartTTL)
+	}
+	return cartID, nil
+}
+
+func (h *Handler) cartView(r *http.Request, cartID uuid.UUID) (pages.CartView, error) {
+	c, totals, err := h.carts.View(r.Context(), cartID)
+	if err != nil {
+		return pages.CartView{}, err
+	}
+	return pages.CartView{
+		Cart:      c,
+		Subtotal:  totals.Subtotal,
+		Shipping:  totals.Shipping,
+		Total:     totals.Total,
+		CSRFToken: reqctx.CSRFToken(r.Context()),
+	}, nil
+}
+
+// render writes a full page: the layout wraps the body component.
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	ctx := templ.WithChildren(r.Context(), body)
+	if err := layout(ctx, w); err != nil {
+		h.log.Error("render page failed",
+			slog.String("request_id", reqctx.RequestID(r.Context())),
+			slog.String("error", err.Error()))
+	}
+}
+
+// writeFragment answers a cart mutation with the cart fragment only.
+func (h *Handler) writeFragment(w http.ResponseWriter, r *http.Request, cartID uuid.UUID, status int, message string) {
+	view, err := h.cartView(r, cartID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	view.Error = message
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	if err := pages.CartFragment(view).Render(r.Context(), w); err != nil {
+		h.log.Error("render cart fragment failed",
+			slog.String("request_id", reqctx.RequestID(r.Context())),
+			slog.String("error", err.Error()))
+	}
+}
+
+func (h *Handler) fragmentError(w http.ResponseWriter, r *http.Request, cartID uuid.UUID, status int, message string) {
+	h.writeFragment(w, r, cartID, status, message)
+}
+
+// fragmentFailure maps a domain error onto a status code and a message that
+// gives nothing internal away.
+func (h *Handler) fragmentFailure(w http.ResponseWriter, r *http.Request, cartID uuid.UUID, err error) {
+	switch {
+	case errors.Is(err, cart.ErrCartItemLimit):
+		h.writeFragment(w, r, cartID, http.StatusUnprocessableEntity, "Quantity must be between 1 and 10.")
+	case errors.Is(err, catalog.ErrOutOfStock):
+		h.writeFragment(w, r, cartID, http.StatusConflict, "Not enough stock left for that size.")
+	case errors.Is(err, cart.ErrItemNotFound), errors.Is(err, catalog.ErrNotFound):
+		h.writeFragment(w, r, cartID, http.StatusNotFound, "That item is no longer available.")
+	default:
+		h.fail(w, r, err)
+	}
+}
+
+// fail logs the cause and answers with a generic message.
+func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	h.log.Error("storefront request failed",
+		slog.String("request_id", reqctx.RequestID(r.Context())),
+		slog.String("path", r.URL.Path),
+		slog.String("error", err.Error()))
+	http.Error(w, "internal server error", http.StatusInternalServerError)
+}

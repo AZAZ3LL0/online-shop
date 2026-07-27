@@ -1,0 +1,124 @@
+package pages
+
+import (
+	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/money"
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
+
+templ sinkSection(title string) {
+	<h2 class="mb-4 mt-12 border-b border-neutral-200 pb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+		{ title }
+	</h2>
+}
+
+templ sinkRow(a, b, c string) {
+	<td class="px-3 py-2">{ a }</td>
+	<td class="px-3 py-2">{ b }</td>
+	<td class="px-3 py-2">{ c }</td>
+}
+
+templ sinkModalBody() {
+	<p class="text-sm text-neutral-600">Modal body is an arbitrary component.</p>
+}
+
+// KitchenSink renders every primitive of tech.md §7.2 on one page. Dev only.
+templ KitchenSink() {
+	<h1 class="text-3xl font-semibold tracking-tight">Kitchen sink</h1>
+	<p class="mt-2 text-sm text-neutral-500">Every UI primitive, rendered once. Development build only.</p>
+	@sinkSection("Button")
+	<div class="flex flex-wrap items-center gap-3">
+		@components.Button(components.ButtonPrimary, "Primary", templ.Attributes{"type": "button"})
+		@components.Button(components.ButtonSecondary, "Secondary", templ.Attributes{"type": "button"})
+		@components.Button(components.ButtonGhost, "Ghost", templ.Attributes{"type": "button"})
+		@components.Button(components.ButtonDanger, "Danger", templ.Attributes{"type": "button"})
+		@components.Button(components.ButtonPrimary, "Disabled", templ.Attributes{"type": "button", "disabled": true})
+	</div>
+	@sinkSection("Badge")
+	<div class="flex flex-wrap items-center gap-3">
+		@components.Badge("neutral", components.ToneNeutral)
+		@components.Badge("success", components.ToneSuccess)
+		@components.Badge("warning", components.ToneWarning)
+		@components.Badge("danger", components.ToneDanger)
+	</div>
+	@sinkSection("Card")
+	<div class="grid max-w-3xl gap-8 sm:grid-cols-2">
+		@components.Card(
+			"/static/img/qzqblackfront-removebg-preview.png",
+			"/static/img/qzqblackback-removebg-preview.png",
+			"/product/qzq-black", "QZQ Black", money.New(3500, "USD"),
+		)
+		@components.Card(
+			"/static/img/beshfront-removebg-preview.png",
+			"/static/img/beshback-removebg-preview.png",
+			"/product/besh", "Besh", money.New(3900, "USD"),
+		)
+	</div>
+	@sinkSection("Form fields")
+	<div class="grid max-w-2xl gap-4 sm:grid-cols-2">
+		@components.Input("name", "Name", "Aisha", "text", "")
+		@components.Input("contact", "Contact", "not-an-email", "text", "Enter an email or a @username")
+		@components.Select("size", "Size", []components.Option{
+			{Value: "s", Label: "S"},
+			{Value: "m", Label: "M"},
+			{Value: "l", Label: "L", Note: "sold out", Disabled: true},
+		}, "m")
+		<div class="sm:col-span-2">
+			@components.Textarea("comment", "Comment", "", 500)
+		</div>
+	</div>
+	@sinkSection("Alert")
+	<div class="grid max-w-2xl gap-3">
+		@components.Alert(components.ToneNeutral, "Neutral message.")
+		@components.Alert(components.ToneSuccess, "Payment received.")
+		@components.Alert(components.ToneWarning, "Reservation expires in 12 minutes.")
+		@components.Alert(components.ToneDanger, "Quantity must be between 1 and 10.")
+	</div>
+	@sinkSection("Money and status")
+	<div class="flex flex-wrap items-center gap-4 text-sm">
+		@components.Money(money.New(3500, "USD"))
+		@components.Money(money.New(0, "USD"))
+		@components.StatusPill(order.StatusCreated)
+		@components.StatusPill(order.StatusAwaitingPayment)
+		@components.StatusPill(order.StatusPaid)
+		@components.StatusPill(order.StatusShipped)
+		@components.StatusPill(order.StatusDelivered)
+		@components.StatusPill(order.StatusExpired)
+		@components.StatusPill(order.StatusCancelled)
+		@components.StatusPill(order.StatusRefunded)
+	</div>
+	@sinkSection("Table")
+	@components.Table([]string{"Order", "Status", "Total"}, []templ.Component{
+		sinkRow("ORD-260727-0001", "paid", "$35.00"),
+		sinkRow("ORD-260727-0002", "awaiting_payment", "$39.00"),
+	})
+	@sinkSection("Empty state")
+	<div class="max-w-2xl">
+		@components.EmptyState("No orders yet", "Orders appear here once the first payment lands.")
+	</div>
+	@sinkSection("Pagination")
+	@components.Pagination(3, 7, "/dev/kitchen-sink")
+	@sinkSection("Stat cards")
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+		@components.StatCard("Revenue", "$4,210.00", "+12%", components.ToneSuccess)
+		@components.StatCard("Orders", "121", "+4%", components.ToneSuccess)
+		@components.StatCard("Average order", "$34.79", "-2%", components.ToneWarning)
+		@components.StatCard("Conversion", "3.1%", "", components.ToneNeutral)
+	</div>
+	@sinkSection("Chart canvas")
+	<div class="grid max-w-3xl gap-6">
+		@components.ChartCanvas("sink-bar", "bar")
+		@components.ChartCanvas("sink-line", "line")
+		@components.ChartCanvas("sink-funnel", "funnel")
+	</div>
+	@sinkSection("Modal and toast")
+	<div class="flex flex-wrap items-center gap-3">
+		@components.Button(components.ButtonSecondary, "Open modal", templ.Attributes{
+			"type":              "button",
+			"x-data":            "{}",
+			"x-on:click":        "$dispatch('open-modal', 'sink-modal')",
+		})
+	</div>
+	@components.Modal("sink-modal", "Modal title", sinkModalBody())
+	@components.Toast("sink-toast", components.ToneSuccess, "Added to cart.")
+}

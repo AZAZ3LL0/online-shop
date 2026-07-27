@@ -1,0 +1,20 @@
+package pages
+
+import "github.com/qzq-kiim/shop/web/templates/components"
+
+templ AdminLogin(view LoginView) {
+	<div class="mx-auto max-w-sm border border-neutral-200 bg-white p-6">
+		<h1 class="mb-6 text-lg font-medium">Admin sign in</h1>
+		if view.Error != "" {
+			<div class="mb-4">
+				@components.Alert(components.ToneDanger, view.Error)
+			</div>
+		}
+		<form method="post" action="/admin/login" class="grid gap-4">
+			<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+			@components.Input("login", "Login", view.Login, "text", "")
+			@components.Input("password", "Password", "", "password", "")
+			@components.Button(components.ButtonPrimary, "Sign in", templ.Attributes{"type": "submit"})
+		</form>
+	</div>
+}

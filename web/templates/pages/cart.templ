@@ -1,0 +1,97 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
+
+// CartFragment is the server-rendered cart. Every cart mutation answers with
+// exactly this fragment: the browser holds no cart state.
+templ CartFragment(view CartView) {
+	<div class="border border-neutral-200 p-4">
+		<h2 class="mb-4 text-sm font-medium uppercase tracking-wide">Cart</h2>
+		if view.Error != "" {
+			<div class="mb-4">
+				@components.Alert(components.ToneDanger, view.Error)
+			</div>
+		}
+		if view.Cart.IsEmpty() {
+			@components.EmptyState("Your cart is empty", "Pick a size and add a tee.")
+		} else {
+			<ul class="divide-y divide-neutral-100">
+				for _, item := range view.Cart.Items {
+					<li class="flex items-start gap-3 py-3">
+						<img src={ item.ImageFront } alt={ item.ProductTitle } loading="lazy" class="h-16 w-16 object-contain"/>
+						<div class="flex-1">
+							<p class="text-sm font-medium">{ item.ProductTitle }</p>
+							<p class="text-xs text-neutral-500">Size { item.Size }</p>
+							<form
+								method="post"
+								action={ templ.SafeURL("/cart/items/" + item.ID.String()) }
+								class="mt-2 flex items-center gap-2"
+								x-on:submit.prevent="submit($event)"
+							>
+								<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+								<input type="hidden" name="_method" value="PATCH"/>
+								<input
+									type="number"
+									name="qty"
+									min="1"
+									max="10"
+									value={ strconv.Itoa(item.Qty) }
+									class="w-16 border border-neutral-300 px-2 py-1 text-sm"
+									aria-label="Quantity"
+								/>
+								<button type="submit" class="text-xs uppercase underline">update</button>
+							</form>
+						</div>
+						<div class="text-right">
+							@components.Money(item.LineTotal())
+							<form
+								method="post"
+								action={ templ.SafeURL("/cart/items/" + item.ID.String()) }
+								class="mt-2"
+								x-on:submit.prevent="submit($event)"
+							>
+								<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+								<input type="hidden" name="_method" value="DELETE"/>
+								<button type="submit" class="text-xs uppercase text-neutral-400 underline">remove</button>
+							</form>
+						</div>
+					</li>
+				}
+			</ul>
+			<dl class="mt-4 space-y-1 text-sm">
+				<div class="flex justify-between">
+					<dt class="text-neutral-500">Subtotal</dt>
+					<dd>
+						@components.Money(view.Subtotal)
+					</dd>
+				</div>
+				<div class="flex justify-between">
+					<dt class="text-neutral-500">Shipping</dt>
+					<dd>
+						@components.Money(view.Shipping)
+					</dd>
+				</div>
+				<div class="flex justify-between border-t border-neutral-200 pt-2 font-medium">
+					<dt>Total</dt>
+					<dd>
+						@components.Money(view.Total)
+					</dd>
+				</div>
+			</dl>
+			<a href="/checkout" class="mt-4 block bg-neutral-900 px-5 py-3 text-center text-sm text-white">Checkout</a>
+		}
+	</div>
+}
+
+templ CartPage(view CartView) {
+	<h1 class="mb-8 text-3xl font-semibold tracking-tight">Cart</h1>
+	<div class="max-w-xl" x-data="cart">
+		<div id="cart-panel">
+			@CartFragment(view)
+		</div>
+	</div>
+}

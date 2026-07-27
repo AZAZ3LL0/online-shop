@@ -1,0 +1,17 @@
+# SITE_ADDRESS is ":80" locally and the real domain in production, where Caddy
+# obtains and renews the certificate on its own.
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	@static path /static/*
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	reverse_proxy app:8080 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

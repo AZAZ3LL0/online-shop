@@ -1,0 +1,78 @@
+name: qzq-shop
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: shop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d shop"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # No published port: the database is reachable only from the compose network.
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-app}@postgres:5432/shop?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  # Development profile: rebuild CSS and templates on change.
+  tailwind:
+    profiles: ["dev"]
+    image: node:22-bookworm-slim
+    working_dir: /src
+    volumes:
+      - ..:/src
+    command: >
+      sh -c "npx --yes tailwindcss@3.4.17 -c tailwind.config.js
+             -i web/static/css/input.css -o web/static/css/app.css --watch"
+
+  templ:
+    profiles: ["dev"]
+    image: golang:1.25-bookworm
+    working_dir: /src
+    volumes:
+      - ..:/src
+      - gocache:/go/pkg/mod
+    command: >
+      sh -c "go run github.com/a-h/templ/cmd/templ@v0.3.898 generate --watch"
+
+volumes:
+  pgdata:
+  caddydata:
+  caddyconfig:
+  gocache:

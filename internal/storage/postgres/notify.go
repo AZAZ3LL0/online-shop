@@ -22,7 +22,7 @@ func NewNotifyRepo(s *Store) *NotifyRepo { return &NotifyRepo{q: s.q} }
 var _ notify.Repository = (*NotifyRepo)(nil)
 
 // Enqueue adds a message unless its dedup key is already present.
-func (r *NotifyRepo) Enqueue(ctx context.Context, n notify.Notification, dedupKey, _ string) error {
+func (r *NotifyRepo) Enqueue(ctx context.Context, n notify.Notification, dedupKey string) error {
 	_, err := r.q.EnqueueNotification(ctx, sqlcgen.EnqueueNotificationParams{
 		OrderID:  nullUUID(n.OrderID),
 		ChatID:   n.ChatID,

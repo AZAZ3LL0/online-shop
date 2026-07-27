@@ -1,0 +1,75 @@
+package templates
+
+import "strconv"
+
+templ head(p Page) {
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<meta name="csrf-token" content={ p.CSRFToken }/>
+		<title>{ p.Title }</title>
+		<link rel="stylesheet" href="/static/css/app.css"/>
+		<script defer src="/static/js/cart.js"></script>
+		<script defer src="/static/vendor/alpine.min.js"></script>
+	</head>
+}
+
+// Shop is the storefront layout: header, cart link, content, footer.
+templ Shop(p Page) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		@head(p)
+		<body class="flex min-h-full flex-col">
+			<header class="border-b border-neutral-200">
+				<nav class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4" aria-label="Main">
+					<a href="/" class="text-lg font-semibold tracking-tight">QZQ</a>
+					<div class="flex items-center gap-6 text-sm">
+						<a href="/" class="hover:underline">Shop</a>
+						<a href="/cart" class="hover:underline" id="cart-link">
+							Cart
+							if p.CartCount > 0 {
+								<span class="ml-1 tabular-nums">({ strconv.Itoa(p.CartCount) })</span>
+							}
+						</a>
+					</div>
+				</nav>
+			</header>
+			<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+				{ children... }
+			</main>
+			<footer class="border-t border-neutral-200">
+				<div class="mx-auto w-full max-w-6xl px-4 py-6 text-xs text-neutral-500">
+					<span>Order status is available in the Telegram bot.</span>
+					if p.IsDev {
+						<a href="/dev/kitchen-sink" class="ml-4 underline">kitchen sink</a>
+					}
+				</div>
+			</footer>
+		</body>
+	</html>
+}
+
+// AdminWeb is the full-width admin layout used in the browser.
+templ AdminWeb(p Page) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		@head(p)
+		<body class="flex min-h-full flex-col bg-neutral-50">
+			<header class="border-b border-neutral-200 bg-white">
+				<nav class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 text-sm" aria-label="Admin">
+					<a href="/admin" class="font-semibold">QZQ admin</a>
+					if p.AdminUser != "" {
+						<form method="post" action="/admin/logout" class="flex items-center gap-3">
+							<input type="hidden" name="csrf_token" value={ p.CSRFToken }/>
+							<span class="text-neutral-500">{ p.AdminUser }</span>
+							<button type="submit" class="underline">log out</button>
+						</form>
+					}
+				</nav>
+			</header>
+			<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

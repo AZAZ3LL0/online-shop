@@ -4,6 +4,8 @@ package notify
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,7 +40,8 @@ var backoff = []time.Duration{
 	6 * time.Hour,
 }
 
-// Notification is one queued outbound message.
+// Notification is one queued outbound message. The rendered text travels in
+// Payload so the worker never has to reach back into the order.
 type Notification struct {
 	ID       uuid.UUID
 	OrderID  *uuid.UUID
@@ -46,7 +49,32 @@ type Notification struct {
 	Kind     Kind
 	Payload  []byte
 	Attempts int
-	Text     string
+}
+
+// Payload is the jsonb body of an outbox row.
+type Payload struct {
+	Text string `json:"text"`
+}
+
+// NewPayload renders the message body for storage.
+func NewPayload(text string) ([]byte, error) {
+	b, err := json.Marshal(Payload{Text: text})
+	if err != nil {
+		return nil, fmt.Errorf("notify: marshal payload: %w", err)
+	}
+	return b, nil
+}
+
+// TextOf reads the message body back out of a stored payload.
+func TextOf(payload []byte) (string, error) {
+	var p Payload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return "", fmt.Errorf("notify: unmarshal payload: %w", err)
+	}
+	if p.Text == "" {
+		return "", fmt.Errorf("notify: payload carries no text")
+	}
+	return p.Text, nil
 }
 
 // NextAttemptAt returns when a row that has already failed attempts times should
@@ -65,7 +93,7 @@ func DedupKey(orderID uuid.UUID, kind Kind, status string) string {
 
 // Repository is the outbox access the worker depends on.
 type Repository interface {
-	Enqueue(ctx context.Context, n Notification, dedupKey string, text string) error
+	Enqueue(ctx context.Context, n Notification, dedupKey string) error
 	ClaimDue(ctx context.Context, now time.Time, limit int) ([]Notification, error)
 	MarkSent(ctx context.Context, id uuid.UUID, now time.Time) error
 	MarkRetry(ctx context.Context, id uuid.UUID, next time.Time, cause string) error

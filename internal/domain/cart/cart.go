@@ -81,7 +81,9 @@ func ValidateQty(qty int) error {
 // Repository is the storage access the cart service depends on.
 type Repository interface {
 	Create(ctx context.Context, visitorID *uuid.UUID) (uuid.UUID, error)
+	Exists(ctx context.Context, cartID uuid.UUID) (bool, error)
 	Get(ctx context.Context, cartID uuid.UUID) (Cart, error)
+	QtyOf(ctx context.Context, cartID, variantID uuid.UUID) (int, error)
 	AddItem(ctx context.Context, cartID, variantID uuid.UUID, qty int) error
 	SetQty(ctx context.Context, cartID, itemID uuid.UUID, qty int) error
 	RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) error

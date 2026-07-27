@@ -1,0 +1,10 @@
+package pages
+
+import "github.com/qzq-kiim/shop/web/templates/components"
+
+// AdminDashboard is the landing page behind adminauth. Its panels are built in
+// stage S5; the skeleton only proves that the session guard works.
+templ AdminDashboard() {
+	<h1 class="mb-6 text-2xl font-semibold tracking-tight">Dashboard</h1>
+	@components.EmptyState("No panels yet", "Orders, products, analytics and settings arrive in stage S5.")
+}
