@@ -1,7 +1,0 @@
-{{define "product_image.html"}}
-{{if .Filename}}
-<img src="/static/images/{{.Filename}}" alt="{{.Product.Name}} — {{.Side}}" class="product-img" onclick="openLightbox('{{.Product.Slug}}', this.src)">
-{{else}}
-<div class="photo-placeholder mono gray">no image</div>
-{{end}}
-{{end}}

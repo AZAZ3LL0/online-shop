@@ -1,9 +1,10 @@
-# Secrets — never commit real credentials
+# Secrets - never commit real credentials
 .env
 
 # Build artifacts
-qzq-kiim
-/tmp/
+/app
+/bin/
+web/static/css/app.css
 
 # OS noise
 .DS_Store
