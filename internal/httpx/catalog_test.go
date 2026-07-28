@@ -48,6 +48,67 @@ func TestHomeListsActiveProductsInSortOrder(t *testing.T) {
 	}
 }
 
+// TestProductPageShowsTheSizeRun is the S1.2 acceptance criteria. The white tee
+// is seeded with an empty XXL, so one page carries both the buyable and the
+// sold out case.
+func TestProductPageShowsTheSizeRun(t *testing.T) {
+	server, client := startShop(t)
+
+	status, body := get(t, client, server.URL+"/product/qzq-white")
+	if status != http.StatusOK {
+		t.Fatalf("GET /product/qzq-white = %d", status)
+	}
+	if !strings.Contains(body, "QZQ White") {
+		t.Fatal("product page does not show the title")
+	}
+	if !strings.Contains(body, "off-white, oversized fit") {
+		t.Fatal("product page does not show the description")
+	}
+	if !strings.Contains(body, "$35.00") {
+		t.Fatal("product page does not show the price")
+	}
+	for _, size := range []string{"S", "M", "L", "XL", "XXL"} {
+		if !strings.Contains(body, ">"+size+"</td>") {
+			t.Fatalf("size run is missing %q", size)
+		}
+	}
+
+	// XXL is seeded with zero stock: it must be flagged and unselectable.
+	if !strings.Contains(body, "sold out") {
+		t.Fatal("the empty size is not flagged as sold out")
+	}
+	if !strings.Contains(body, "XXL - sold out") {
+		t.Fatalf("the sold out size is still offered as a plain option: %s", body)
+	}
+	if !strings.Contains(body, "in stock") {
+		t.Fatal("the available sizes are not flagged as in stock")
+	}
+	if !strings.Contains(body, `name="variant_id"`) {
+		t.Fatal("a product with stock left must offer the add form")
+	}
+}
+
+// TestProductPageUnknownSlugIsNotFound checks the shared error handler: an
+// unknown slug answers 404 with the neutral page, not with a stack trace and
+// not with a buyable form.
+func TestProductPageUnknownSlugIsNotFound(t *testing.T) {
+	server, client := startShop(t)
+
+	status, body := get(t, client, server.URL+"/product/there-is-no-such-tee")
+	if status != http.StatusNotFound {
+		t.Fatalf("GET an unknown product = %d, want 404", status)
+	}
+	if !strings.Contains(body, "Not found") {
+		t.Fatalf("404 does not render the shared error page: %s", body)
+	}
+	if strings.Contains(body, `name="variant_id"`) {
+		t.Fatal("the 404 page must not offer an add form")
+	}
+	if strings.Contains(body, "there-is-no-such-tee") {
+		t.Fatal("the 404 page must not echo the requested slug")
+	}
+}
+
 // TestHomeShowsBothCoversForEveryCard covers the flip requirement at the level
 // that is worth testing: both covers must reach the browser, so the CSS hover
 // and the Alpine tap have something to switch between. The visual transition
