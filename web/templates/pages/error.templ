@@ -1,0 +1,15 @@
+package pages
+
+import "github.com/qzq-kiim/shop/web/templates/components"
+
+// ErrorPage is the one storefront error body. Every 4xx a visitor can reach is
+// rendered through it, so the wording is defined once and never leaks whether
+// the thing that was asked for exists.
+templ ErrorPage(title, hint string) {
+	<div class="mx-auto max-w-md">
+		@components.EmptyState(title, hint)
+		<p class="mt-6 text-center">
+			<a href="/" class="text-sm underline">Back to the shop</a>
+		</p>
+	</div>
+}

@@ -51,6 +51,7 @@ func NewRouter(d Deps) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /{$}", shopHandler.Home)
+	mux.HandleFunc("GET /product/{slug}", shopHandler.Product)
 	mux.HandleFunc("GET /cart", shopHandler.CartPage)
 	mux.HandleFunc("POST /cart/items", shopHandler.AddItem)
 	mux.HandleFunc("PATCH /cart/items/{id}", shopHandler.UpdateItem)

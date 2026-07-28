@@ -2,6 +2,7 @@
 package shop
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -62,6 +63,38 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		IsDev:     h.isDev,
 	}
 	body := pages.Home(pages.HomeView{Products: products, Cart: view, CSRFToken: page.CSRFToken})
+	h.render(w, r, templates.Shop(page).Render, body)
+}
+
+// Product renders one model: both covers, the size run and the add form.
+func (h *Handler) Product(w http.ResponseWriter, r *http.Request) {
+	product, err := h.catalog.BySlug(r.Context(), r.PathValue("slug"))
+	if err != nil {
+		if errors.Is(err, catalog.ErrNotFound) {
+			h.notFound(w, r)
+			return
+		}
+		h.fail(w, r, err)
+		return
+	}
+	cartID, err := h.ensureCart(w, r)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	view, err := h.cartView(r, cartID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+
+	page := templates.Page{
+		Title:     product.Title + " - QZQ",
+		CartCount: view.Cart.Count(),
+		CSRFToken: reqctx.CSRFToken(r.Context()),
+		IsDev:     h.isDev,
+	}
+	body := pages.Product(pages.ProductView{Product: product, Cart: view, CSRFToken: page.CSRFToken})
 	h.render(w, r, templates.Shop(page).Render, body)
 }
 

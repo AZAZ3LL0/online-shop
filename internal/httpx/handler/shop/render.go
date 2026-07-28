@@ -13,6 +13,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/cart"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
+	"github.com/qzq-kiim/shop/web/templates"
 	"github.com/qzq-kiim/shop/web/templates/pages"
 )
 
@@ -99,6 +100,31 @@ func (h *Handler) fragmentFailure(w http.ResponseWriter, r *http.Request, cartID
 		h.writeFragment(w, r, cartID, http.StatusNotFound, "That item is no longer available.")
 	default:
 		h.fail(w, r, err)
+	}
+}
+
+// notFound answers with the shared error page. Every storefront 404 goes
+// through here, so the wording is defined once and says the same thing whether
+// the slug never existed or the model was taken off sale.
+func (h *Handler) notFound(w http.ResponseWriter, r *http.Request) {
+	h.errorPage(w, r, http.StatusNotFound, "Not found", "This page is not on sale, or it never was.")
+}
+
+// errorPage renders the storefront error body inside the normal layout.
+func (h *Handler) errorPage(w http.ResponseWriter, r *http.Request, status int, title, hint string) {
+	page := templates.Page{
+		Title:     title + " - QZQ",
+		CSRFToken: reqctx.CSRFToken(r.Context()),
+		IsDev:     h.isDev,
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+
+	ctx := templ.WithChildren(r.Context(), pages.ErrorPage(title, hint))
+	if err := templates.Shop(page).Render(ctx, w); err != nil {
+		h.log.Error("render error page failed",
+			slog.String("request_id", reqctx.RequestID(r.Context())),
+			slog.String("error", err.Error()))
 	}
 }
 
