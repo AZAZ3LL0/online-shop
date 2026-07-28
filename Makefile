@@ -1,5 +1,6 @@
 TAILWIND_VERSION ?= v3.4.17
 TEMPL_VERSION    ?= v0.3.898
+GOLANGCI_VERSION ?= v2.1.6
 TAILWIND         ?= ./bin/tailwindcss
 
 .PHONY: help tools generate css build test lint vet vuln gate run migrate seed up down
@@ -10,7 +11,7 @@ help:
 tools: ## install the pinned code generators and linters
 	go install github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION)
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@latest
 	go install github.com/pressly/goose/v3/cmd/goose@latest
 
@@ -28,6 +29,7 @@ vet:
 	go vet ./...
 
 lint:
+	golangci-lint config verify
 	golangci-lint run
 
 vuln:
@@ -41,6 +43,7 @@ gate: ## the same checks the pull request gate runs
 	templ generate
 	@git diff --exit-code -- '*_templ.go' || (echo "templ output is stale, commit it"; exit 1)
 	go vet ./...
+	golangci-lint config verify
 	golangci-lint run
 	govulncheck ./...
 	go test ./... -race
