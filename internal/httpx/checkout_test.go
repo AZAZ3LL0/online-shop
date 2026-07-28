@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -361,4 +363,90 @@ func firstVariant(t *testing.T, env *shopEnv) string {
 	t.Helper()
 	_, home := get(t, env.client, env.server.URL+"/")
 	return capture(t, reVariant, home, "variant id")
+}
+
+// Several buyers can reach the last units at the same time. Whatever the
+// interleaving, the shop must not sell more than it has: the reservation is
+// taken under a row lock, so the losers get a refusal and not a phantom order
+// (TASKS.md S3.1, stock invariant under concurrent reservations).
+func TestConcurrentCheckoutsNeverOversell(t *testing.T) {
+	env := startShopEnv(t)
+	variantID := firstVariant(t, env)
+
+	const available = 3
+	_, err := env.store.Pool().Exec(context.Background(),
+		`UPDATE product_variants SET stock = $2, reserved = 0 WHERE id = $1`, variantID, available)
+	if err != nil {
+		t.Fatalf("set stock: %v", err)
+	}
+
+	const buyers = 8
+	type attempt struct {
+		env    *shopEnv
+		client *http.Client
+		token  string
+	}
+	attempts := make([]attempt, 0, buyers)
+	for range buyers {
+		// Every buyer gets their own cookie jar, so they are separate carts.
+		jar, err := cookiejar.New(nil)
+		if err != nil {
+			t.Fatalf("cookie jar: %v", err)
+		}
+		buyer := &shopEnv{
+			server: env.server,
+			client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
+			store:  env.store,
+			orders: env.orders,
+			fake:   env.fake,
+		}
+		_, home := get(t, buyer.client, buyer.server.URL+"/")
+		csrfToken := capture(t, reCSRF, home, "csrf token")
+		if status, body := send(t, buyer.client, http.MethodPost, buyer.server.URL+"/cart/items",
+			buyer.server.URL, url.Values{
+				"csrf_token": {csrfToken},
+				"variant_id": {variantID},
+				"qty":        {"1"},
+			}); status != http.StatusOK {
+			t.Fatalf("POST /cart/items = %d: %s", status, body)
+		}
+		attempts = append(attempts, attempt{env: buyer, client: buyer.client, token: csrfToken})
+	}
+
+	var (
+		wg        sync.WaitGroup
+		mu        sync.Mutex
+		succeeded int
+		refused   int
+	)
+	for _, a := range attempts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			status, _, _ := sendNoRedirect(t, a.env, http.MethodPost, "/checkout", checkoutForm(a.token))
+			mu.Lock()
+			defer mu.Unlock()
+			switch status {
+			case http.StatusSeeOther:
+				succeeded++
+			case http.StatusConflict:
+				refused++
+			default:
+				t.Errorf("concurrent checkout = %d, want 303 or 409", status)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if succeeded != available {
+		t.Errorf("%d checkouts went through, want exactly the %d available units", succeeded, available)
+	}
+	if succeeded+refused != buyers {
+		t.Errorf("%d of %d checkouts got a definite answer", succeeded+refused, buyers)
+	}
+	stock, reserved := variantStock(t, env, variantID)
+	if reserved != available || stock-reserved != 0 {
+		t.Errorf("stock/reserved = %d/%d, want %d/%d", stock, reserved, available, available)
+	}
+	assertStockInvariant(t, env)
 }
