@@ -53,14 +53,18 @@ gate: ## the same checks the pull request gate runs
 	govulncheck ./...
 	go test ./... -race
 
+# The binary reads plain environment variables, so the local targets load .env
+# themselves. Inside docker it is compose that supplies them.
+LOCAL_ENV = set -a; . ./.env; set +a;
+
 run: ## run the server against the local environment
-	go run ./cmd/app serve
+	$(LOCAL_ENV) go run ./cmd/app serve
 
 migrate: ## apply migrations
-	go run ./cmd/app migrate
+	$(LOCAL_ENV) go run ./cmd/app migrate
 
 seed: ## reset the demo dataset
-	go run ./cmd/app seed
+	$(LOCAL_ENV) go run ./cmd/app seed
 
 db-dev: ## start the throwaway postgres the local binary talks to
 	docker run -d --rm --name $(DEV_DB_NAME) \

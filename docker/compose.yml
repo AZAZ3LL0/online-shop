@@ -25,6 +25,9 @@ services:
       - ../.env
     environment:
       DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-app}@postgres:5432/shop?sslmode=disable
+      # Behind Caddy the browser talks to SITE_ADDRESS, not to the port in .env.
+      # The CSRF origin check compares against this, so the two must agree.
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
     depends_on:
       postgres:
         condition: service_healthy
