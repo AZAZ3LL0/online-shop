@@ -11,6 +11,8 @@ import (
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
+	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/domain/payment"
 	"github.com/qzq-kiim/shop/internal/httpx"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
@@ -51,14 +53,18 @@ func serve(ctx context.Context) error {
 	adminRepo := postgres.NewAdminRepo(store)
 	analyticsRepo := postgres.NewAnalyticsRepo(store)
 	notifyRepo := postgres.NewNotifyRepo(store)
+	orderRepo := postgres.NewOrderRepo(store)
+	paymentRepo := postgres.NewPaymentRepo(store)
 
 	cartService := cart.NewService(cartRepo, catalogRepo, shopCurrency, cfg.ShippingCents)
+	orderService := order.NewService(orderRepo, cfg.OrderTTL)
+	paymentService := payment.NewService(paymentRepo)
 	signer := cookies.NewSigner(cfg.Secret, !cfg.IsDev())
 	limiter := middleware.NewLimiter()
 
 	bot := newBot(cfg, log)
 	// The payment provider is built at startup so a misconfiguration fails here
-	// rather than on the first checkout. Its handlers arrive in stage S3.
+	// rather than on the first checkout.
 	payments := newPaymentProvider(cfg)
 	log.Info("providers selected",
 		slog.String("payments", cfg.PaymentsProvider),
@@ -72,6 +78,9 @@ func serve(ctx context.Context) error {
 		Signer:    signer,
 		Catalog:   catalogRepo,
 		Carts:     cartService,
+		Orders:    orderService,
+		Payments:  paymentService,
+		Provider:  payments,
 		Analytics: analyticsRepo,
 		Admins:    adminRepo,
 		Sessions:  adminRepo,

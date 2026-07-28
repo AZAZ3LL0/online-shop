@@ -3,10 +3,14 @@
 package pages
 
 import (
+	"encoding/json"
+	"time"
+
 	"github.com/a-h/templ"
 
 	"github.com/qzq-kiim/shop/internal/domain/cart"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/money"
 	"github.com/qzq-kiim/shop/web/templates/components"
 )
@@ -38,6 +42,54 @@ type ProductView struct {
 	Product   catalog.Product
 	Cart      CartView
 	CSRFToken string
+}
+
+// CheckoutView is the checkout form: the priced cart, what the buyer typed and
+// what still has to be fixed.
+type CheckoutView struct {
+	Cart               CartView
+	Customer           order.Customer
+	Consent            bool
+	Errors             order.FieldErrors
+	Error              string
+	CSRFToken          string
+	ReservationMinutes int
+}
+
+// FieldError returns the message shown under one field, empty when it is fine.
+func (v CheckoutView) FieldError(name string) string { return v.Errors[name] }
+
+// OrderView is the public status page of one order.
+type OrderView struct {
+	Order order.Order
+	Now   time.Time
+}
+
+// Expired reports whether the reservation deadline has passed.
+func (v OrderView) Expired() bool { return v.Order.IsExpired(v.Now) }
+
+// Payable reports whether the buyer can still be sent to the invoice.
+func (v OrderView) Payable() bool {
+	return v.Order.InvoiceURL != "" && v.Order.Status == order.StatusAwaitingPayment && !v.Expired()
+}
+
+// orderState builds the Alpine state of the status page: where to poll and when
+// the reservation runs out. The status itself stays server-rendered; the page
+// reloads when the poll reports a different one.
+func orderState(v OrderView) string {
+	state := map[string]any{
+		"status":    string(v.Order.Status),
+		"statusUrl": "/order/" + v.Order.PublicToken + "/status",
+		"expiresAt": "",
+	}
+	if v.Order.ExpiresAt != nil {
+		state["expiresAt"] = v.Order.ExpiresAt.UTC().Format(time.RFC3339)
+	}
+	encoded, err := json.Marshal(state)
+	if err != nil {
+		return "orderStatus({})"
+	}
+	return "orderStatus(" + string(encoded) + ")"
 }
 
 // LoginView is the admin login form state.

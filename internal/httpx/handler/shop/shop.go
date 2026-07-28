@@ -10,10 +10,13 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/qzq-kiim/shop/internal/domain/analytics"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
+	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
 	"github.com/qzq-kiim/shop/web/templates"
 	"github.com/qzq-kiim/shop/web/templates/pages"
 )
@@ -24,18 +27,48 @@ const CookieCart = "cart_id"
 // cartTTL keeps an abandoned cart addressable for a month.
 const cartTTL = 30 * 24 * time.Hour
 
+// Deps is everything the storefront needs, injected by the router.
+type Deps struct {
+	Catalog   catalog.Repository
+	Carts     *cart.Service
+	Orders    *order.Service
+	Payments  nowpayments.Provider
+	Analytics analytics.Repository
+	Cookies   *cookies.Signer
+	Log       *slog.Logger
+	BaseURL   string
+	OrderTTL  time.Duration
+	IsDev     bool
+}
+
 // Handler serves the storefront.
 type Handler struct {
-	catalog catalog.Repository
-	carts   *cart.Service
-	cookies *cookies.Signer
-	log     *slog.Logger
-	isDev   bool
+	catalog   catalog.Repository
+	carts     *cart.Service
+	orders    *order.Service
+	payments  nowpayments.Provider
+	analytics analytics.Repository
+	cookies   *cookies.Signer
+	log       *slog.Logger
+	baseURL   string
+	orderTTL  time.Duration
+	isDev     bool
 }
 
 // New wires the storefront handler.
-func New(products catalog.Repository, carts *cart.Service, signer *cookies.Signer, log *slog.Logger, isDev bool) *Handler {
-	return &Handler{catalog: products, carts: carts, cookies: signer, log: log, isDev: isDev}
+func New(d Deps) *Handler {
+	return &Handler{
+		catalog:   d.Catalog,
+		carts:     d.Carts,
+		orders:    d.Orders,
+		payments:  d.Payments,
+		analytics: d.Analytics,
+		cookies:   d.Cookies,
+		log:       d.Log,
+		baseURL:   d.BaseURL,
+		orderTTL:  d.OrderTTL,
+		isDev:     d.IsDev,
+	}
 }
 
 // Home renders the three product cards and the cart panel.

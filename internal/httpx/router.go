@@ -11,11 +11,15 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/analytics"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/domain/payment"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/admin"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/dev"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/shop"
+	"github.com/qzq-kiim/shop/internal/httpx/handler/webhook"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
+	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
 )
 
 // StaticDir is where the built CSS, the vendored JS and the images live.
@@ -33,6 +37,9 @@ type Deps struct {
 	Signer    *cookies.Signer
 	Catalog   catalog.Repository
 	Carts     *cart.Service
+	Orders    *order.Service
+	Payments  *payment.Service
+	Provider  nowpayments.Provider
 	Analytics analytics.Repository
 	Admins    admin.Repository
 	Sessions  middleware.SessionReader
@@ -44,9 +51,21 @@ type Deps struct {
 // SKELETON.md §3.6: request_id -> recover -> logging -> securityheaders ->
 // csrf -> attribution -> ratelimit.
 func NewRouter(d Deps) http.Handler {
-	shopHandler := shop.New(d.Catalog, d.Carts, d.Signer, d.Log, d.Config.IsDev())
+	shopHandler := shop.New(shop.Deps{
+		Catalog:   d.Catalog,
+		Carts:     d.Carts,
+		Orders:    d.Orders,
+		Payments:  d.Provider,
+		Analytics: d.Analytics,
+		Cookies:   d.Signer,
+		Log:       d.Log,
+		BaseURL:   d.Config.BaseURL,
+		OrderTTL:  d.Config.OrderTTL,
+		IsDev:     d.Config.IsDev(),
+	})
 	adminHandler := admin.New(d.Admins, d.Signer, d.Log)
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
+	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Log)
 
 	mux := http.NewServeMux()
 
@@ -56,6 +75,12 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("POST /cart/items", shopHandler.AddItem)
 	mux.HandleFunc("PATCH /cart/items/{id}", shopHandler.UpdateItem)
 	mux.HandleFunc("DELETE /cart/items/{id}", shopHandler.RemoveItem)
+	mux.HandleFunc("GET /checkout", shopHandler.CheckoutForm)
+	mux.HandleFunc("POST /checkout", shopHandler.Checkout)
+	mux.HandleFunc("GET /order/{token}", shopHandler.OrderPage)
+	mux.HandleFunc("GET /order/{token}/status", shopHandler.OrderStatus)
+	mux.HandleFunc("GET /payment/return/{token}", shopHandler.PaymentReturn)
+	mux.HandleFunc("POST /webhooks/nowpayments", ipn.Handle)
 	mux.HandleFunc("GET /healthz", healthz(d.Health))
 
 	mux.HandleFunc("GET /admin/login", adminHandler.LoginForm)

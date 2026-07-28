@@ -55,9 +55,15 @@ func (h *Handler) cartView(r *http.Request, cartID uuid.UUID) (pages.CartView, e
 	}, nil
 }
 
-// render writes a full page: the layout wraps the body component.
+// render writes a full 200 page: the layout wraps the body component.
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.renderBody(w, r, layout, body)
+}
+
+// renderBody writes the layout with the body. The caller has already set the
+// content type and, when it is not 200, the status code.
+func (h *Handler) renderBody(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
 	ctx := templ.WithChildren(r.Context(), body)
 	if err := layout(ctx, w); err != nil {
 		h.log.Error("render page failed",
