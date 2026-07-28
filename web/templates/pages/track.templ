@@ -1,0 +1,27 @@
+package pages
+
+// TrackInTelegram is the single rendering of the bot entry point, shown both
+// before the buyer leaves for the invoice and on the status page afterwards
+// (tech.md §5.5). It renders nothing when no bot is configured, so a shop
+// running without a token simply has no dead button.
+templ TrackInTelegram(entry TrackEntry) {
+	if entry.Offered() {
+		<div class="mb-6 border border-neutral-200 p-4">
+			<h2 class="mb-1 text-sm font-medium uppercase tracking-wide">Track in Telegram</h2>
+			<p class="mb-4 text-xs text-neutral-500">
+				Open the bot to get every status change of this order as a message.
+			</p>
+			<div class="flex flex-wrap items-center gap-5">
+				<a href={ templ.SafeURL(entry.URL()) } rel="noopener" class="inline-block bg-neutral-900 px-5 py-3 text-sm text-white">
+					Track order in Telegram
+				</a>
+				if entry.QR() != "" {
+					<figure class="text-center">
+						<img src={ entry.QR() } alt="QR code opening this order in the Telegram bot" width="128" height="128" class="h-32 w-32"/>
+						<figcaption class="mt-1 text-xs text-neutral-500">or scan from your phone</figcaption>
+					</figure>
+				}
+			</div>
+		</div>
+	}
+}

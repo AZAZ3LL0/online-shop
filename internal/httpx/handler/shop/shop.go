@@ -37,37 +37,41 @@ type Deps struct {
 	Cookies   *cookies.Signer
 	Log       *slog.Logger
 	BaseURL   string
-	OrderTTL  time.Duration
-	IsDev     bool
+	// BotUsername drives the Telegram entry point; empty hides it entirely.
+	BotUsername string
+	OrderTTL    time.Duration
+	IsDev       bool
 }
 
 // Handler serves the storefront.
 type Handler struct {
-	catalog   catalog.Repository
-	carts     *cart.Service
-	orders    *order.Service
-	payments  nowpayments.Provider
-	analytics analytics.Repository
-	cookies   *cookies.Signer
-	log       *slog.Logger
-	baseURL   string
-	orderTTL  time.Duration
-	isDev     bool
+	catalog     catalog.Repository
+	carts       *cart.Service
+	orders      *order.Service
+	payments    nowpayments.Provider
+	analytics   analytics.Repository
+	cookies     *cookies.Signer
+	log         *slog.Logger
+	baseURL     string
+	botUsername string
+	orderTTL    time.Duration
+	isDev       bool
 }
 
 // New wires the storefront handler.
 func New(d Deps) *Handler {
 	return &Handler{
-		catalog:   d.Catalog,
-		carts:     d.Carts,
-		orders:    d.Orders,
-		payments:  d.Payments,
-		analytics: d.Analytics,
-		cookies:   d.Cookies,
-		log:       d.Log,
-		baseURL:   d.BaseURL,
-		orderTTL:  d.OrderTTL,
-		isDev:     d.IsDev,
+		catalog:     d.Catalog,
+		carts:       d.Carts,
+		orders:      d.Orders,
+		payments:    d.Payments,
+		analytics:   d.Analytics,
+		cookies:     d.Cookies,
+		log:         d.Log,
+		baseURL:     d.BaseURL,
+		botUsername: d.BotUsername,
+		orderTTL:    d.OrderTTL,
+		isDev:       d.IsDev,
 	}
 }
 

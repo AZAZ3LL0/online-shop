@@ -26,15 +26,17 @@ const callbackPath = "/webhooks/nowpayments"
 // fake provider's secret and posts it through the real IPN endpoint, so the
 // signature check and the status machine are exercised in development.
 type Payments struct {
-	fake   *nowpayments.Fake
-	orders *order.Service
-	ipn    http.Handler
-	log    *slog.Logger
+	fake        *nowpayments.Fake
+	orders      *order.Service
+	ipn         http.Handler
+	botUsername string
+	log         *slog.Logger
 }
 
-// NewPayments wires the development payment page.
-func NewPayments(fake *nowpayments.Fake, orders *order.Service, ipn http.Handler, log *slog.Logger) *Payments {
-	return &Payments{fake: fake, orders: orders, ipn: ipn, log: log}
+// NewPayments wires the development payment page. botUsername may be empty, in
+// which case the page simply offers no Telegram entry point.
+func NewPayments(fake *nowpayments.Fake, orders *order.Service, ipn http.Handler, botUsername string, log *slog.Logger) *Payments {
+	return &Payments{fake: fake, orders: orders, ipn: ipn, botUsername: botUsername, log: log}
 }
 
 // Page renders the buttons that stand in for the provider's payment states.
@@ -54,6 +56,7 @@ func (h *Payments) Page(w http.ResponseWriter, r *http.Request) {
 		OrderURL:  "/order/" + found.PublicToken,
 		CSRFToken: page.CSRFToken,
 		Statuses:  nowpayments.DevStatuses,
+		Track:     pages.TrackEntry{BotUsername: h.botUsername, LinkCode: found.TGLinkCode},
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	ctx := templ.WithChildren(r.Context(), pages.DevPay(view))

@@ -37,6 +37,7 @@ templ OrderStatus(view OrderView) {
 				@components.Alert(components.ToneWarning, "The reservation has run out. Put the tees back in the cart to order again.")
 			</div>
 		}
+		@TrackInTelegram(view.Track)
 		<div class="border border-neutral-200 p-4">
 			<h2 class="mb-4 text-sm font-medium uppercase tracking-wide">Items</h2>
 			<ul class="divide-y divide-neutral-100">

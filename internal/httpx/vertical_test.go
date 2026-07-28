@@ -36,6 +36,15 @@ import (
 // orderTTL is the reservation lifetime the tests run with.
 const orderTTL = 30 * time.Minute
 
+// The bot the tests run against. These are not credentials: the fake bot never
+// talks to Telegram, and the two secrets only have to match themselves so the
+// webhook's constant-time checks are exercised (tech.md §9.4).
+const (
+	botUsername       = "qzq_test_bot"
+	webhookSecret     = "test-webhook-secret"
+	webhookPathSecret = "test-path-secret"
+)
+
 var (
 	reCSRF    = regexp.MustCompile(`name="csrf-token" content="([0-9a-f]+)"`)
 	reVariant = regexp.MustCompile(`name="variant_id"[\s\S]*?<option value="([0-9a-f-]{36})"`)
@@ -112,7 +121,12 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Secret:           []byte("0123456789abcdef0123456789abcdef"),
 		PaymentsProvider: config.ProviderFake,
 		TelegramProvider: config.ProviderFake,
-		OrderTTL:         orderTTL,
+		Telegram: config.Telegram{
+			BotUsername:       botUsername,
+			WebhookSecret:     webhookSecret,
+			WebhookPathSecret: webhookPathSecret,
+		},
+		OrderTTL: orderTTL,
 	}
 	catalogRepo := postgres.NewCatalogRepo(store)
 	cartRepo := postgres.NewCartRepo(store)
