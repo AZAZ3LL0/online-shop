@@ -23,12 +23,18 @@ import (
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
+	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/domain/payment"
 	"github.com/qzq-kiim/shop/internal/httpx"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
+	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
 	"github.com/qzq-kiim/shop/internal/storage/postgres"
 	"github.com/qzq-kiim/shop/migrations"
 )
+
+// orderTTL is the reservation lifetime the tests run with.
+const orderTTL = 30 * time.Minute
 
 var (
 	reCSRF    = regexp.MustCompile(`name="csrf-token" content="([0-9a-f]+)"`)
@@ -36,10 +42,28 @@ var (
 	reItem    = regexp.MustCompile(`action="/cart/items/([0-9a-f-]{36})"`)
 )
 
-// startShop brings up a real Postgres, applies the migrations, seeds the demo
-// data and serves the router. Nothing here is mocked: this is the reference
-// vertical the later slices copy.
+// shopEnv is one running shop: a real Postgres, the real router and the fake
+// payment provider behind it. Slices that need more than HTTP - stock counts,
+// the expiry worker - reach for the store through it.
+type shopEnv struct {
+	server *httptest.Server
+	client *http.Client
+	store  *postgres.Store
+	orders *postgres.OrderRepo
+	fake   *nowpayments.Fake
+}
+
+// startShop keeps the signature the catalogue slices use.
 func startShop(t *testing.T) (*httptest.Server, *http.Client) {
+	t.Helper()
+	env := startShopEnv(t)
+	return env.server, env.client
+}
+
+// startShopEnv brings up a real Postgres, applies the migrations, seeds the
+// demo data and serves the router. Nothing here is mocked: this is the
+// reference vertical the later slices copy.
+func startShopEnv(t *testing.T) *shopEnv {
 	t.Helper()
 
 	ctx := context.Background()
@@ -88,10 +112,14 @@ func startShop(t *testing.T) (*httptest.Server, *http.Client) {
 		Secret:           []byte("0123456789abcdef0123456789abcdef"),
 		PaymentsProvider: config.ProviderFake,
 		TelegramProvider: config.ProviderFake,
+		OrderTTL:         orderTTL,
 	}
 	catalogRepo := postgres.NewCatalogRepo(store)
 	cartRepo := postgres.NewCartRepo(store)
 	adminRepo := postgres.NewAdminRepo(store)
+	orderRepo := postgres.NewOrderRepo(store)
+	paymentRepo := postgres.NewPaymentRepo(store)
+	fake := nowpayments.NewFake(cfg.Secret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	router := httpx.NewRouter(httpx.Deps{
@@ -100,6 +128,9 @@ func startShop(t *testing.T) (*httptest.Server, *http.Client) {
 		Signer:    cookies.NewSigner(cfg.Secret, false),
 		Catalog:   catalogRepo,
 		Carts:     cart.NewService(cartRepo, catalogRepo, "USD", 0),
+		Orders:    order.NewService(orderRepo, cfg.OrderTTL),
+		Payments:  payment.NewService(paymentRepo),
+		Provider:  fake,
 		Analytics: postgres.NewAnalyticsRepo(store),
 		Admins:    adminRepo,
 		Sessions:  adminRepo,
@@ -118,7 +149,13 @@ func startShop(t *testing.T) (*httptest.Server, *http.Client) {
 	if err != nil {
 		t.Fatalf("cookie jar: %v", err)
 	}
-	return server, &http.Client{Jar: jar, Timeout: 20 * time.Second}
+	return &shopEnv{
+		server: server,
+		client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
+		store:  store,
+		orders: orderRepo,
+		fake:   fake,
+	}
 }
 
 func applyMigrations(t *testing.T, dsn string) {

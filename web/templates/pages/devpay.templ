@@ -1,0 +1,29 @@
+package pages
+
+import "github.com/qzq-kiim/shop/web/templates/components"
+
+// DevPay stands in for the hosted NOWPayments invoice while the fake provider
+// is selected. Each button sends one signed callback through the real IPN
+// endpoint, so development exercises the same path as production.
+templ DevPay(view DevPayView) {
+	<div class="max-w-xl">
+		<p class="text-xs uppercase tracking-wide text-neutral-500">Development payment page</p>
+		<h1 class="mb-4 text-3xl font-semibold tracking-tight">{ view.Number }</h1>
+		<p class="mb-6 text-sm">
+			Amount due:
+			@components.Money(view.Total)
+		</p>
+		<div class="mb-6">
+			@components.Alert(components.ToneWarning, "No money moves here. This page only signs a provider callback and posts it to the shop.")
+		</div>
+		<form method="post" action={ templ.SafeURL("/dev/pay/" + view.Number) } class="flex flex-wrap gap-2">
+			<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+			for _, status := range view.Statuses {
+				@components.Button(components.ButtonSecondary, status, templ.Attributes{
+					"type": "submit", "name": "status", "value": status,
+				})
+			}
+		</form>
+		<a href={ templ.SafeURL(view.OrderURL) } class="mt-6 inline-block text-xs uppercase underline">back to the order</a>
+	</div>
+}

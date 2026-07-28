@@ -2,9 +2,16 @@ package nowpayments
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"slices"
+	"strconv"
 	"sync"
+
+	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/money"
 )
 
 // ErrFakeFailure is what the fake returns when it is told to fail, so the error
@@ -46,8 +53,10 @@ func (f *Fake) CreateInvoice(ctx context.Context, in InvoiceRequest) (Invoice, e
 		return Invoice{}, fmt.Errorf("create invoice: total must be positive")
 	}
 	f.invoices = append(f.invoices, in)
+	// The invoice and the callbacks must address the same payment row, so the
+	// fake reports the id its own callbacks will carry.
 	return Invoice{
-		ID:  "fake-" + in.OrderNumber,
+		ID:  DevPaymentID(in.OrderNumber),
 		URL: "/dev/pay/" + in.OrderNumber,
 	}, nil
 }
@@ -62,6 +71,69 @@ func (f *Fake) ParseIPN(rawBody []byte) (IPN, error) { return parseIPN(rawBody) 
 
 // SignBody produces a header value the verifier accepts, for the dev pay page.
 func (f *Fake) SignBody(rawBody []byte) (string, error) { return Sign(f.secret, rawBody) }
+
+// DevStatuses are the provider states the local payment page can send. They are
+// the raw statuses of tech.md §5.4, in the order a payment goes through them.
+var DevStatuses = []string{
+	payment.ProviderWaiting,
+	payment.ProviderConfirming,
+	payment.ProviderFinished,
+	payment.ProviderPartiallyPaid,
+	payment.ProviderFailed,
+	payment.ProviderExpired,
+	payment.ProviderRefunded,
+}
+
+// IsDevStatus reports whether the local payment page may send this status.
+func IsDevStatus(status string) bool {
+	return slices.Contains(DevStatuses, status)
+}
+
+// DevPaymentID derives the provider payment id the local page reports. Real
+// NOWPayments sends a number, so the fake does too: the parser must not have to
+// be loosened for development.
+func DevPaymentID(orderNumber string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(orderNumber))
+	return strconv.FormatUint(uint64(h.Sum32()), 10)
+}
+
+// DevCallback builds a callback body in the shape frozen in tech.md §5.4. The
+// crypto amounts are derived from the invoice total by integer arithmetic, and
+// a partial payment is short by exactly one cent so it can never be mistaken
+// for a full one.
+func DevCallback(orderNumber, status string, total money.Amount) map[string]any {
+	owed := total.Cents
+	paid := owed
+	switch status {
+	case payment.ProviderPartiallyPaid:
+		paid = owed - 1
+	case payment.ProviderConfirmed, payment.ProviderFinished:
+	default:
+		paid = 0
+	}
+	return map[string]any{
+		"payment_id":     json.Number(DevPaymentID(orderNumber)),
+		"payment_status": status,
+		"pay_address":    "dev-address",
+		"price_amount":   json.Number(decimal(owed)),
+		"price_currency": "usd",
+		"pay_amount":     json.Number(decimal(owed)),
+		"actually_paid":  json.Number(decimal(paid)),
+		"pay_currency":   "usd",
+		"order_id":       orderNumber,
+	}
+}
+
+// decimal renders minor units as a decimal string without touching a float.
+func decimal(cents int64) string {
+	sign := ""
+	if cents < 0 {
+		sign = "-"
+		cents = -cents
+	}
+	return fmt.Sprintf("%s%d.%02d", sign, cents/100, cents%100)
+}
 
 // FailNext makes the next CreateInvoice call fail, for error-path tests.
 func (f *Fake) FailNext(err error) {

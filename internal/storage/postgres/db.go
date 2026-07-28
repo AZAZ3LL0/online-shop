@@ -55,6 +55,25 @@ func (s *Store) Ping(ctx context.Context) error {
 // Pool exposes the pool for the migration runner and integration tests.
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
+// withTx runs fn inside one transaction. A domain unit of work - place an
+// order and reserve its stock, apply a callback and settle its stock - is one
+// call to this helper, so it either happens completely or not at all.
+func withTx(ctx context.Context, pool *pgxpool.Pool, fn func(*sqlcgen.Queries) error) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := fn(sqlcgen.New(tx)); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
 func nullUUID(id *uuid.UUID) pgtype.UUID {
 	if id == nil {
 		return pgtype.UUID{}
