@@ -83,12 +83,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	cartID, err := h.ensureCart(w, r)
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	view, err := h.cartView(r, cartID)
+	view, err := h.cartView(r, h.cartID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -116,12 +111,7 @@ func (h *Handler) Product(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	cartID, err := h.ensureCart(w, r)
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	view, err := h.cartView(r, cartID)
+	view, err := h.cartView(r, h.cartID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -141,12 +131,7 @@ func (h *Handler) Product(w http.ResponseWriter, r *http.Request) {
 
 // CartPage renders the standalone cart page.
 func (h *Handler) CartPage(w http.ResponseWriter, r *http.Request) {
-	cartID, err := h.ensureCart(w, r)
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	view, err := h.cartView(r, cartID)
+	view, err := h.cartView(r, h.cartID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -161,7 +146,9 @@ func (h *Handler) CartPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, templates.Shop(page).Render, pages.CartPage(view))
 }
 
-// AddItem adds a variant to the cart and answers with the cart fragment.
+// AddItem adds a variant to the cart and answers with the cart fragment. This
+// is the only entry point that opens a cart, so the signed cookie appears on
+// the first add and not before.
 func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 	cartID, err := h.ensureCart(w, r)
 	if err != nil {
@@ -169,40 +156,34 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		h.fragmentError(w, r, cartID, http.StatusBadRequest, "Malformed request.")
+		h.fragmentError(w, r, &cartID, http.StatusBadRequest, "Malformed request.")
 		return
 	}
 	variantID, err := uuid.Parse(r.PostForm.Get("variant_id"))
 	if err != nil {
-		h.fragmentError(w, r, cartID, http.StatusBadRequest, "Pick a size first.")
+		h.fragmentError(w, r, &cartID, http.StatusBadRequest, "Pick a size first.")
 		return
 	}
 	qty, err := strconv.Atoi(r.PostForm.Get("qty"))
 	if err != nil {
-		h.fragmentError(w, r, cartID, http.StatusUnprocessableEntity, "Quantity must be a number.")
+		h.fragmentError(w, r, &cartID, http.StatusUnprocessableEntity, badQtyMessage)
 		return
 	}
 	if err := h.carts.Add(r.Context(), cartID, variantID, qty); err != nil {
-		h.fragmentFailure(w, r, cartID, err)
+		h.fragmentFailure(w, r, &cartID, err)
 		return
 	}
 	h.recordEvent(r, analytics.EventAddToCart, payload(map[string]any{
 		"variant_id": variantID.String(),
 		"qty":        qty,
 	}))
-	h.writeFragment(w, r, cartID, http.StatusOK, "")
+	h.writeFragment(w, r, &cartID, http.StatusOK, "")
 }
 
 // UpdateItem changes the quantity of one cart line.
 func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
-	cartID, err := h.ensureCart(w, r)
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	itemID, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		h.fragmentError(w, r, cartID, http.StatusNotFound, "That item is no longer in your cart.")
+	cartID, itemID, ok := h.mutatedItem(w, r)
+	if !ok {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -211,10 +192,10 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	}
 	qty, err := strconv.Atoi(r.PostForm.Get("qty"))
 	if err != nil {
-		h.fragmentError(w, r, cartID, http.StatusUnprocessableEntity, "Quantity must be a number.")
+		h.fragmentError(w, r, cartID, http.StatusUnprocessableEntity, badQtyMessage)
 		return
 	}
-	if err := h.carts.SetQty(r.Context(), cartID, itemID, qty); err != nil {
+	if err := h.carts.SetQty(r.Context(), *cartID, itemID, qty); err != nil {
 		h.fragmentFailure(w, r, cartID, err)
 		return
 	}
@@ -223,20 +204,28 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 
 // RemoveItem drops one cart line.
 func (h *Handler) RemoveItem(w http.ResponseWriter, r *http.Request) {
-	cartID, err := h.ensureCart(w, r)
-	if err != nil {
-		h.fail(w, r, err)
+	cartID, itemID, ok := h.mutatedItem(w, r)
+	if !ok {
 		return
 	}
-	itemID, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		h.fragmentError(w, r, cartID, http.StatusNotFound, "That item is no longer in your cart.")
-		return
-	}
-	if err := h.carts.Remove(r.Context(), cartID, itemID); err != nil {
+	if err := h.carts.Remove(r.Context(), *cartID, itemID); err != nil {
 		h.fragmentFailure(w, r, cartID, err)
 		return
 	}
 	h.recordEvent(r, analytics.EventRemoveFromCart, payload(map[string]any{"item_id": itemID.String()}))
 	h.writeFragment(w, r, cartID, http.StatusOK, "")
+}
+
+// mutatedItem resolves the line an update or a delete addresses. A request
+// without a cart, or with an id that is not a uuid, gets the same neutral 404
+// as an id that belongs to somebody else's cart: nothing is created and nothing
+// about other carts is revealed. It answers the request itself when it fails.
+func (h *Handler) mutatedItem(w http.ResponseWriter, r *http.Request) (*uuid.UUID, uuid.UUID, bool) {
+	cartID := h.cartID(r)
+	itemID, err := uuid.Parse(r.PathValue("id"))
+	if cartID == nil || err != nil {
+		h.fragmentError(w, r, cartID, http.StatusNotFound, missingItemMessage)
+		return nil, uuid.Nil, false
+	}
+	return cartID, itemID, true
 }

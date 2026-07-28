@@ -107,11 +107,17 @@ func (s *Service) Remove(ctx context.Context, cartID, itemID uuid.UUID) error {
 	return s.carts.RemoveItem(ctx, cartID, itemID)
 }
 
-// View loads the cart together with its totals.
-func (s *Service) View(ctx context.Context, cartID uuid.UUID) (Cart, Totals, error) {
-	c, err := s.carts.Get(ctx, cartID)
-	if err != nil {
-		return Cart{}, Totals{}, err
+// View loads the cart together with its totals. A nil id is a visitor who has
+// never added anything: that reads as an empty cart and touches no storage, so
+// browsing alone never opens a cart row.
+func (s *Service) View(ctx context.Context, cartID *uuid.UUID) (Cart, Totals, error) {
+	c := Cart{}
+	if cartID != nil {
+		var err error
+		c, err = s.carts.Get(ctx, *cartID)
+		if err != nil {
+			return Cart{}, Totals{}, err
+		}
 	}
 	totals, err := s.Totals(ctx, c)
 	if err != nil {
@@ -131,6 +137,12 @@ func (s *Service) Totals(ctx context.Context, c Cart) (Totals, error) {
 		cents, err := s.shipping.ShippingCents(ctx)
 		if err != nil {
 			return Totals{}, fmt.Errorf("cart shipping: %w", err)
+		}
+		// Settings validation rejects a negative fee on the way in, but the
+		// cart is the last place that can still turn one into a discount on
+		// the total. Postage is never money back.
+		if cents < 0 {
+			cents = 0
 		}
 		shipping = money.New(cents, s.currency)
 	}
