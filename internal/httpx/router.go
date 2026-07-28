@@ -52,16 +52,17 @@ type Deps struct {
 // csrf -> attribution -> ratelimit.
 func NewRouter(d Deps) http.Handler {
 	shopHandler := shop.New(shop.Deps{
-		Catalog:   d.Catalog,
-		Carts:     d.Carts,
-		Orders:    d.Orders,
-		Payments:  d.Provider,
-		Analytics: d.Analytics,
-		Cookies:   d.Signer,
-		Log:       d.Log,
-		BaseURL:   d.Config.BaseURL,
-		OrderTTL:  d.Config.OrderTTL,
-		IsDev:     d.Config.IsDev(),
+		Catalog:     d.Catalog,
+		Carts:       d.Carts,
+		Orders:      d.Orders,
+		Payments:    d.Provider,
+		Analytics:   d.Analytics,
+		Cookies:     d.Signer,
+		Log:         d.Log,
+		BaseURL:     d.Config.BaseURL,
+		BotUsername: d.Config.Telegram.BotUsername,
+		OrderTTL:    d.Config.OrderTTL,
+		IsDev:       d.Config.IsDev(),
 	})
 	adminHandler := admin.New(d.Admins, d.Signer, d.Log)
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
@@ -94,7 +95,7 @@ func NewRouter(d Deps) http.Handler {
 		// The fake provider sends the buyer to a local payment page, so the
 		// whole checkout works without a provider key (tech.md §5.4).
 		if fake, ok := d.Provider.(*nowpayments.Fake); ok {
-			pay := dev.NewPayments(fake, d.Orders, http.HandlerFunc(ipn.Handle), d.Log)
+			pay := dev.NewPayments(fake, d.Orders, http.HandlerFunc(ipn.Handle), d.Config.Telegram.BotUsername, d.Log)
 			mux.HandleFunc("GET /dev/pay/{number}", pay.Page)
 			mux.HandleFunc("POST /dev/pay/{number}", pay.Simulate)
 		}

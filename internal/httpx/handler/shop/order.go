@@ -31,7 +31,11 @@ func (h *Handler) OrderPage(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		IsDev:     h.isDev,
 	}
-	view := pages.OrderView{Order: found, Now: time.Now().UTC()}
+	view := pages.OrderView{
+		Order: found,
+		Now:   time.Now().UTC(),
+		Track: pages.TrackEntry{BotUsername: h.botUsername, LinkCode: found.TGLinkCode},
+	}
 	h.render(w, r, templates.Shop(page).Render, pages.OrderStatus(view))
 }
 
