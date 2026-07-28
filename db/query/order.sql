@@ -76,9 +76,11 @@ ORDER BY expires_at
 LIMIT $2
 FOR UPDATE SKIP LOCKED;
 
+-- A provider callback opens its own payment row without an invoice url, so the
+-- link the buyer can still use is the latest row that actually carries one.
 -- name: GetLatestInvoiceURL :one
 SELECT invoice_url
 FROM payments
-WHERE order_id = $1
+WHERE order_id = $1 AND invoice_url IS NOT NULL
 ORDER BY created_at DESC
 LIMIT 1;

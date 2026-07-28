@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/qzq-kiim/shop/internal/domain/payment"
@@ -51,8 +53,10 @@ func (f *Fake) CreateInvoice(ctx context.Context, in InvoiceRequest) (Invoice, e
 		return Invoice{}, fmt.Errorf("create invoice: total must be positive")
 	}
 	f.invoices = append(f.invoices, in)
+	// The invoice and the callbacks must address the same payment row, so the
+	// fake reports the id its own callbacks will carry.
 	return Invoice{
-		ID:  "fake-" + in.OrderNumber,
+		ID:  DevPaymentID(in.OrderNumber),
 		URL: "/dev/pay/" + in.OrderNumber,
 	}, nil
 }
@@ -85,6 +89,15 @@ func IsDevStatus(status string) bool {
 	return slices.Contains(DevStatuses, status)
 }
 
+// DevPaymentID derives the provider payment id the local page reports. Real
+// NOWPayments sends a number, so the fake does too: the parser must not have to
+// be loosened for development.
+func DevPaymentID(orderNumber string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(orderNumber))
+	return strconv.FormatUint(uint64(h.Sum32()), 10)
+}
+
 // DevCallback builds a callback body in the shape frozen in tech.md §5.4. The
 // crypto amounts are derived from the invoice total by integer arithmetic, and
 // a partial payment is short by exactly one cent so it can never be mistaken
@@ -100,7 +113,7 @@ func DevCallback(orderNumber, status string, total money.Amount) map[string]any 
 		paid = 0
 	}
 	return map[string]any{
-		"payment_id":     "fake-" + orderNumber,
+		"payment_id":     json.Number(DevPaymentID(orderNumber)),
 		"payment_status": status,
 		"pay_address":    "dev-address",
 		"price_amount":   json.Number(decimal(owed)),

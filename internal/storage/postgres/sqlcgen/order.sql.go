@@ -35,11 +35,13 @@ func (q *Queries) CommitVariantStock(ctx context.Context, arg CommitVariantStock
 const getLatestInvoiceURL = `-- name: GetLatestInvoiceURL :one
 SELECT invoice_url
 FROM payments
-WHERE order_id = $1
+WHERE order_id = $1 AND invoice_url IS NOT NULL
 ORDER BY created_at DESC
 LIMIT 1
 `
 
+// A provider callback opens its own payment row without an invoice url, so the
+// link the buyer can still use is the latest row that actually carries one.
 func (q *Queries) GetLatestInvoiceURL(ctx context.Context, orderID uuid.UUID) (*string, error) {
 	row := q.db.QueryRow(ctx, getLatestInvoiceURL, orderID)
 	var invoice_url *string
