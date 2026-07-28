@@ -3,7 +3,12 @@ TEMPL_VERSION    ?= v0.3.898
 GOLANGCI_VERSION ?= v2.1.6
 TAILWIND         ?= ./bin/tailwindcss
 
-.PHONY: help tools generate css build test lint vet vuln gate run migrate seed up down
+# 5432 and 5433 are taken by other projects on this machine, so the dev database
+# is published on 5434. The compose stack still publishes no database port.
+DEV_DB_NAME      ?= qzq-dev-db
+DEV_DB_PORT      ?= 5434
+
+.PHONY: help tools generate css build test lint vet vuln gate run migrate seed db-dev db-dev-stop up down
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-12s %s\n", $$1, $$2}'
@@ -56,6 +61,17 @@ migrate: ## apply migrations
 
 seed: ## reset the demo dataset
 	go run ./cmd/app seed
+
+db-dev: ## start the throwaway postgres the local binary talks to
+	docker run -d --rm --name $(DEV_DB_NAME) \
+		-e POSTGRES_USER=app -e POSTGRES_PASSWORD=app -e POSTGRES_DB=shop \
+		-p $(DEV_DB_PORT):5432 postgres:16-alpine
+	@echo "waiting for postgres on $(DEV_DB_PORT)"
+	@until docker exec $(DEV_DB_NAME) pg_isready -U app -d shop >/dev/null 2>&1; do sleep 1; done
+	@echo "ready: postgres://app:app@localhost:$(DEV_DB_PORT)/shop"
+
+db-dev-stop: ## drop the throwaway dev database
+	-docker rm -f $(DEV_DB_NAME)
 
 up: ## start app, postgres and caddy
 	docker compose -f docker/compose.yml up -d --build
