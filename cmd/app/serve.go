@@ -32,6 +32,7 @@ const (
 	idleTimeout       = 2 * time.Minute
 	shutdownTimeout   = 15 * time.Second
 	outboxInterval    = 10 * time.Second
+	expiryInterval    = time.Minute
 	limiterInterval   = time.Minute
 )
 
@@ -97,10 +98,14 @@ func serve(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		worker.NewOutbox(notifyRepo, bot, log, outboxInterval).Run(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		worker.NewExpirer(orderRepo, log, expiryInterval).Run(ctx)
 	}()
 	go func() {
 		defer wg.Done()
