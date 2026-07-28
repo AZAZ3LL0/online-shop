@@ -20,6 +20,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/httpx/handler/webhook"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
+	"github.com/qzq-kiim/shop/internal/telegram"
 )
 
 // StaticDir is where the built CSS, the vendored JS and the images live.
@@ -43,6 +44,8 @@ type Deps struct {
 	Analytics analytics.Repository
 	Admins    admin.Repository
 	Sessions  middleware.SessionReader
+	Links     telegram.Repository
+	Bot       telegram.Bot
 	Health    Health
 	Limiter   *middleware.Limiter
 }
@@ -67,6 +70,9 @@ func NewRouter(d Deps) http.Handler {
 	adminHandler := admin.New(d.Admins, d.Signer, d.Log)
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
 	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Log)
+	bot := webhook.NewTelegram(
+		telegram.NewRouter(d.Links, d.Bot), d.Links,
+		d.Config.Telegram.WebhookSecret, d.Config.Telegram.WebhookPathSecret, d.Log)
 
 	mux := http.NewServeMux()
 
@@ -82,6 +88,10 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("GET /order/{token}/status", shopHandler.OrderStatus)
 	mux.HandleFunc("GET /payment/return/{token}", shopHandler.PaymentReturn)
 	mux.HandleFunc("POST /webhooks/nowpayments", ipn.Handle)
+	// The path secret is part of the address, tech.md §5.5. It is compared in
+	// the handler rather than baked into the pattern so a wrong one is a 401
+	// and not a 404 that would tell a prober the route exists at all.
+	mux.HandleFunc("POST /webhooks/telegram/{secret}", bot.Handle)
 	mux.HandleFunc("GET /healthz", healthz(d.Health))
 
 	mux.HandleFunc("GET /admin/login", adminHandler.LoginForm)

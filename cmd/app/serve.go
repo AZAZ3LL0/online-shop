@@ -56,6 +56,7 @@ func serve(ctx context.Context) error {
 	notifyRepo := postgres.NewNotifyRepo(store)
 	orderRepo := postgres.NewOrderRepo(store)
 	paymentRepo := postgres.NewPaymentRepo(store)
+	telegramRepo := postgres.NewTelegramRepo(store)
 
 	cartService := cart.NewService(cartRepo, catalogRepo, shopCurrency, cfg.ShippingCents)
 	orderService := order.NewService(orderRepo, cfg.OrderTTL)
@@ -85,6 +86,8 @@ func serve(ctx context.Context) error {
 		Analytics: analyticsRepo,
 		Admins:    adminRepo,
 		Sessions:  adminRepo,
+		Links:     telegramRepo,
+		Bot:       bot,
 		Health:    store,
 		Limiter:   limiter,
 	})

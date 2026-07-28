@@ -30,6 +30,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
 	"github.com/qzq-kiim/shop/internal/storage/postgres"
+	"github.com/qzq-kiim/shop/internal/telegram"
 	"github.com/qzq-kiim/shop/migrations"
 )
 
@@ -59,7 +60,9 @@ type shopEnv struct {
 	client *http.Client
 	store  *postgres.Store
 	orders *postgres.OrderRepo
+	notify *postgres.NotifyRepo
 	fake   *nowpayments.Fake
+	bot    *telegram.Fake
 }
 
 // startShop keeps the signature the catalogue slices use.
@@ -133,8 +136,10 @@ func startShopEnv(t *testing.T) *shopEnv {
 	adminRepo := postgres.NewAdminRepo(store)
 	orderRepo := postgres.NewOrderRepo(store)
 	paymentRepo := postgres.NewPaymentRepo(store)
+	telegramRepo := postgres.NewTelegramRepo(store)
 	fake := nowpayments.NewFake(cfg.Secret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	bot := telegram.NewFake(log)
 
 	router := httpx.NewRouter(httpx.Deps{
 		Config:    cfg,
@@ -148,6 +153,8 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Analytics: postgres.NewAnalyticsRepo(store),
 		Admins:    adminRepo,
 		Sessions:  adminRepo,
+		Links:     telegramRepo,
+		Bot:       bot,
 		Health:    store,
 		Limiter:   middleware.NewLimiter(),
 	})
@@ -168,7 +175,9 @@ func startShopEnv(t *testing.T) *shopEnv {
 		client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
 		store:  store,
 		orders: orderRepo,
+		notify: postgres.NewNotifyRepo(store),
 		fake:   fake,
+		bot:    bot,
 	}
 }
 
