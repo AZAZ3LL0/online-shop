@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/domain/notify"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/money"
 	"github.com/qzq-kiim/shop/internal/storage/postgres/sqlcgen"
@@ -155,7 +156,10 @@ func (r *OrderRepo) AttachPayment(ctx context.Context, orderID uuid.UUID, from, 
 		if n == 0 {
 			return fmt.Errorf("order %s: %w", orderID, order.ErrConflict)
 		}
-		return nil
+		// Nobody is normally following the order this early, so this usually
+		// queues nothing; it is here so no transition is a special case.
+		return enqueueOrderNotification(ctx, q, orderID, notify.KindStatusChanged, to,
+			notify.StatusText(locked.Number, to))
 	})
 }
 
@@ -232,24 +236,33 @@ func (r *OrderRepo) ByNumber(ctx context.Context, number string) (order.Order, e
 func (r *OrderRepo) ExpireDue(ctx context.Context, now time.Time, limit int) (int, error) {
 	var expired int
 	err := withTx(ctx, r.pool, func(q *sqlcgen.Queries) error {
-		ids, err := q.ListDueOrderIDs(ctx, sqlcgen.ListDueOrderIDsParams{
+		due, err := q.ListDueOrders(ctx, sqlcgen.ListDueOrdersParams{
 			ExpiresAt: ts(now),
 			Limit:     int32of(limit),
 		})
 		if err != nil {
 			return fmt.Errorf("list due orders: %w", err)
 		}
-		for _, id := range ids {
-			if err := releaseItems(ctx, q, id); err != nil {
+		for _, row := range due {
+			if err := releaseItems(ctx, q, row.ID); err != nil {
 				return err
 			}
 			n, err := q.SetOrderStatus(ctx, sqlcgen.SetOrderStatusParams{
-				ID:       id,
+				ID:       row.ID,
 				Status:   string(order.StatusExpired),
 				Status_2: string(order.StatusAwaitingPayment),
 			})
 			if err != nil {
 				return fmt.Errorf("expire order: %w", err)
+			}
+			if n == 0 {
+				// Someone else moved it on between the select and the update.
+				continue
+			}
+			err = enqueueOrderNotification(ctx, q, row.ID, notify.KindStatusChanged, order.StatusExpired,
+				notify.StatusText(row.Number, order.StatusExpired))
+			if err != nil {
+				return err
 			}
 			expired += int(n)
 		}

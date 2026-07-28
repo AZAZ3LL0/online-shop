@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/qzq-kiim/shop/internal/domain/notify"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
 	"github.com/qzq-kiim/shop/internal/storage/postgres/sqlcgen"
@@ -80,6 +81,13 @@ func (r *PaymentRepo) Apply(ctx context.Context, cmd payment.Command) (payment.O
 			return fmt.Errorf("order %s: %w", cmd.OrderNumber, order.ErrConflict)
 		}
 		if err := settleStock(ctx, q, locked.ID, target); err != nil {
+			return err
+		}
+		// The message goes out with the status change, not after it: the two
+		// either both land or neither does (tech.md §5.4 rule 4).
+		err = enqueueOrderNotification(ctx, q, locked.ID, notify.KindStatusChanged, target,
+			notify.StatusText(cmd.OrderNumber, target))
+		if err != nil {
 			return err
 		}
 		out.To = target
