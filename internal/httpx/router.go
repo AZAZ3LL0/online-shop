@@ -91,6 +91,13 @@ func NewRouter(d Deps) http.Handler {
 	if d.Config.IsDev() {
 		devHandler := dev.New(d.Log)
 		mux.HandleFunc("GET /dev/kitchen-sink", devHandler.KitchenSink)
+		// The fake provider sends the buyer to a local payment page, so the
+		// whole checkout works without a provider key (tech.md §5.4).
+		if fake, ok := d.Provider.(*nowpayments.Fake); ok {
+			pay := dev.NewPayments(fake, d.Orders, http.HandlerFunc(ipn.Handle), d.Log)
+			mux.HandleFunc("GET /dev/pay/{number}", pay.Page)
+			mux.HandleFunc("POST /dev/pay/{number}", pay.Simulate)
+		}
 	}
 
 	app := middleware.Chain(mux,

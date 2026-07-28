@@ -92,6 +92,16 @@ func orderState(v OrderView) string {
 	return "orderStatus(" + string(encoded) + ")"
 }
 
+// DevPayView is the local stand-in for the hosted invoice page, rendered only
+// in a development build.
+type DevPayView struct {
+	Number    string
+	Total     money.Amount
+	OrderURL  string
+	CSRFToken string
+	Statuses  []string
+}
+
 // LoginView is the admin login form state.
 type LoginView struct {
 	CSRFToken string
