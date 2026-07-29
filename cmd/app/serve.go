@@ -11,6 +11,7 @@ import (
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
 	"github.com/qzq-kiim/shop/internal/httpx"
@@ -61,6 +62,7 @@ func serve(ctx context.Context) error {
 	cartService := cart.NewService(cartRepo, catalogRepo, shopCurrency, cfg.ShippingCents)
 	orderService := order.NewService(orderRepo, cfg.OrderTTL)
 	adminOrders := order.NewAdminService(orderRepo)
+	adminCatalog := catalog.NewAdminService(postgres.NewCatalogAdminRepo(store), shopCurrency)
 	paymentService := payment.NewService(paymentRepo)
 	signer := cookies.NewSigner(cfg.Secret, !cfg.IsDev())
 	limiter := middleware.NewLimiter()
@@ -76,24 +78,26 @@ func serve(ctx context.Context) error {
 	)
 
 	router := httpx.NewRouter(httpx.Deps{
-		Config:      cfg,
-		Log:         log,
-		Signer:      signer,
-		Catalog:     catalogRepo,
-		Carts:       cartService,
-		Orders:      orderService,
-		Payments:    paymentService,
-		Provider:    payments,
-		Analytics:   analyticsRepo,
-		Admins:      adminRepo,
-		AdminOrders: adminOrders,
-		PaymentLog:  paymentRepo,
-		Sessions:    adminRepo,
-		Links:       telegramRepo,
-		ChatLinks:   telegramRepo,
-		Bot:         bot,
-		Health:      store,
-		Limiter:     limiter,
+		Config:       cfg,
+		Log:          log,
+		Signer:       signer,
+		Catalog:      catalogRepo,
+		Carts:        cartService,
+		Orders:       orderService,
+		Payments:     paymentService,
+		Provider:     payments,
+		Analytics:    analyticsRepo,
+		Admins:       adminRepo,
+		AdminOrders:  adminOrders,
+		AdminCatalog: adminCatalog,
+		Currency:     shopCurrency,
+		PaymentLog:   paymentRepo,
+		Sessions:     adminRepo,
+		Links:        telegramRepo,
+		ChatLinks:    telegramRepo,
+		Bot:          bot,
+		Health:       store,
+		Limiter:      limiter,
 	})
 
 	server := &http.Server{

@@ -40,9 +40,11 @@ type Deps struct {
 	Admins   Repository
 	Orders   *order.AdminService
 	Catalog  catalog.Repository
+	Products *catalog.AdminService
 	Payments PaymentLog
 	Links    ChatLinks
 	Cookies  *cookies.Signer
+	Currency string
 	Log      *slog.Logger
 }
 
@@ -51,9 +53,11 @@ type Handler struct {
 	admins   Repository
 	orders   *order.AdminService
 	catalog  catalog.Repository
+	products *catalog.AdminService
 	payments PaymentLog
 	links    ChatLinks
 	cookies  *cookies.Signer
+	currency string
 	log      *slog.Logger
 }
 
@@ -63,9 +67,11 @@ func New(d Deps) *Handler {
 		admins:   d.Admins,
 		orders:   d.Orders,
 		catalog:  d.Catalog,
+		products: d.Products,
 		payments: d.Payments,
 		links:    d.Links,
 		cookies:  d.Cookies,
+		currency: d.Currency,
 		log:      d.Log,
 	}
 }

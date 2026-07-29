@@ -1,0 +1,104 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
+
+// AdminProducts is the product page: an inline price editor with a mandatory
+// reason, the price trail and the stock of every size (tech.md §8.3).
+templ AdminProducts(view AdminProductsView) {
+	<h1 class="mb-6 text-2xl font-semibold tracking-tight">Products</h1>
+	if view.SavedMessage() != "" {
+		<div class="mb-6">
+			@components.Alert(components.ToneSuccess, view.SavedMessage())
+		</div>
+	}
+	<div class="grid gap-6">
+		for _, product := range view.Products {
+			<section id={ "product-" + product.ID.String() } class="border border-neutral-200 bg-white p-4">
+				<div class="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+					<div class="flex items-baseline gap-3">
+						<h2 class="text-lg font-medium">{ product.Title }</h2>
+						@components.Money(product.Price)
+						if !product.IsActive {
+							@components.Badge("inactive", components.ToneWarning)
+						}
+					</div>
+					<a href={ templ.SafeURL("/product/" + product.Slug) } class="text-sm text-neutral-500 underline">
+						view in the shop
+					</a>
+				</div>
+				if view.Notice.On(product.ID) {
+					<div class="mb-4">
+						@components.Alert(components.ToneDanger, view.Notice.Error)
+					</div>
+				}
+				<div class="grid gap-6 md:grid-cols-2">
+					<div>
+						<h3 class="mb-2 text-xs uppercase tracking-wide text-neutral-500">Price</h3>
+						<form
+							method="post"
+							action={ templ.SafeURL("/admin/products/" + product.ID.String() + "/price") }
+							class="grid gap-3"
+						>
+							<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+							@components.Input("price", "New price", priceInput(product.Price), "text", "")
+							@components.Textarea("reason", "Why it changes", "", catalog.MaxReasonRunes)
+							<div>
+								@components.Button(components.ButtonPrimary, "Save the price", templ.Attributes{"type": "submit"})
+							</div>
+						</form>
+						<h3 class="mb-2 mt-6 text-xs uppercase tracking-wide text-neutral-500">Price trail</h3>
+						if len(view.trail(product.ID)) == 0 {
+							<p class="text-sm text-neutral-500">The price has not moved yet.</p>
+						} else {
+							@components.Table([]string{"When", "From", "To", "Delta", "By", "Why"}, priceRows(view.trail(product.ID)))
+						}
+					</div>
+					<div>
+						<h3 class="mb-2 text-xs uppercase tracking-wide text-neutral-500">Stock</h3>
+						<div class="grid gap-2">
+							for _, variant := range product.Variants {
+								<form
+									method="post"
+									action={ templ.SafeURL("/admin/products/" + product.ID.String() + "/stock") }
+									class="flex items-end gap-3"
+								>
+									<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+									<input type="hidden" name="variant_id" value={ variant.ID.String() }/>
+									<span class="w-10 pb-2 text-sm font-medium">{ variant.Size }</span>
+									<div class="w-28">
+										@components.Input("stock", "In stock", strconv.Itoa(variant.Stock), "number", "")
+									</div>
+									<span class="pb-2 text-xs text-neutral-500">
+										{ strconv.Itoa(variant.Reserved) } reserved, { strconv.Itoa(variant.Available()) } sellable
+									</span>
+									@components.Button(components.ButtonSecondary, "Save", templ.Attributes{"type": "submit"})
+								</form>
+							}
+						</div>
+					</div>
+				</div>
+			</section>
+		}
+	</div>
+}
+
+// adminPriceRow is one recorded price change.
+templ adminPriceRow(entry catalog.PriceEntry) {
+	<td class="px-3 py-2 text-neutral-500">{ adminTime(entry.CreatedAt) }</td>
+	<td class="px-3 py-2">
+		@components.Money(entry.OldPrice)
+	</td>
+	<td class="px-3 py-2">
+		@components.Money(entry.NewPrice)
+	</td>
+	<td class="px-3 py-2">
+		@components.Badge(entry.Delta().String(), deltaTone(entry))
+	</td>
+	<td class="px-3 py-2 text-neutral-500">{ changedByLabel(entry) }</td>
+	<td class="px-3 py-2">{ entry.Reason }</td>
+}

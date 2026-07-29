@@ -23,7 +23,7 @@ const (
 
 // adminPaths is every page the session guard has to cover. Each admin slice
 // adds its own route here, so the guard is never checked on one page only.
-var adminPaths = []string{"/admin", "/admin/orders"}
+var adminPaths = []string{"/admin", "/admin/orders", "/admin/products"}
 
 // createAdmin puts one administrator into the test database.
 func createAdmin(t *testing.T, env *shopEnv) {

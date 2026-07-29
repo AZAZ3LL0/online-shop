@@ -1,16 +1,20 @@
 package pages
 
 import (
+	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/a-h/templ"
+	"github.com/google/uuid"
 
 	"github.com/qzq-kiim/shop/internal/domain/analytics"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/money"
 	"github.com/qzq-kiim/shop/internal/telegram"
 	"github.com/qzq-kiim/shop/web/templates/components"
 )
@@ -206,6 +210,83 @@ func amountLabel(amount, currency string) string {
 		return amount
 	}
 	return amount + " " + strings.ToUpper(currency)
+}
+
+// AdminNotice is the message a rejected edit leaves on the product page, tied to
+// the model it belongs to.
+type AdminNotice struct {
+	ProductID uuid.UUID
+	Error     string
+}
+
+// On reports whether the notice belongs to this product.
+func (n AdminNotice) On(productID uuid.UUID) bool {
+	return n.Error != "" && n.ProductID == productID
+}
+
+// AdminProductsView is the product page: every model with its sizes and its
+// price trail (tech.md §8.3).
+type AdminProductsView struct {
+	Products  []catalog.Product
+	History   map[uuid.UUID][]catalog.PriceEntry
+	Notice    AdminNotice
+	Saved     string
+	CSRFToken string
+}
+
+// SavedMessage is what the page says after a successful edit.
+func (v AdminProductsView) SavedMessage() string {
+	switch v.Saved {
+	case "price":
+		return "The new price is live, and the change is on the record."
+	case "stock":
+		return "The stock is updated."
+	default:
+		return ""
+	}
+}
+
+// trail is the price history of one model, oldest changes last.
+func (v AdminProductsView) trail(productID uuid.UUID) []catalog.PriceEntry {
+	return v.History[productID]
+}
+
+// priceInput renders a stored price back into the decimal the form edits.
+func priceInput(amount money.Amount) string {
+	cents := amount.Cents
+	if cents < 0 {
+		cents = -cents
+	}
+	return strconv.FormatInt(cents/100, 10) + "." + fmt.Sprintf("%02d", cents%100)
+}
+
+// priceRows renders a price trail as table rows.
+func priceRows(trail []catalog.PriceEntry) []templ.Component {
+	rows := make([]templ.Component, 0, len(trail))
+	for _, entry := range trail {
+		rows = append(rows, adminPriceRow(entry))
+	}
+	return rows
+}
+
+// deltaTone colours a price move: up is the one worth noticing.
+func deltaTone(entry catalog.PriceEntry) components.Tone {
+	switch {
+	case entry.Delta().Cents > 0:
+		return components.ToneWarning
+	case entry.Delta().Cents < 0:
+		return components.ToneSuccess
+	default:
+		return components.ToneNeutral
+	}
+}
+
+// changedByLabel names who moved the price, for the rows that predate the panel.
+func changedByLabel(entry catalog.PriceEntry) string {
+	if entry.ChangedBy == "" {
+		return "before the panel"
+	}
+	return entry.ChangedBy
 }
 
 // adminFact is one label/value line of a card panel.
