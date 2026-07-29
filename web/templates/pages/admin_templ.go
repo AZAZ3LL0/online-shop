@@ -10,8 +10,9 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/qzq-kiim/shop/web/templates/components"
 
-// AdminDashboard is the landing page behind adminauth. Its panels are built in
-// stage S5; the skeleton only proves that the session guard works.
+// AdminDashboard is the landing page behind adminauth. Orders, products and
+// settings are reachable from the navigation; the panels of numbers on this page
+// are built in stage S6.
 func AdminDashboard() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -37,7 +38,7 @@ func AdminDashboard() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = components.EmptyState("No panels yet", "Orders, products, analytics and settings arrive in stage S5.").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.EmptyState("No numbers yet", "Revenue, orders and the funnel arrive in stage S6. Orders, products and settings are in the navigation above.").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
