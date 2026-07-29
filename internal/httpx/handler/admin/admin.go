@@ -103,15 +103,30 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
-// Dashboard is the landing page behind adminauth. Its panels arrive with S5.
+// Dashboard is the landing page behind adminauth. Its panels arrive with S6.
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
+	h.renderPage(w, r, "Admin", templates.SectionDashboard, pages.AdminDashboard())
+}
+
+// renderPage writes one admin page: the shell around the body, with the
+// navigation entry of section highlighted.
+func (h *Handler) renderPage(w http.ResponseWriter, r *http.Request, title, section string, body templ.Component) {
+	h.renderPageStatus(w, r, http.StatusOK, title, section, body)
+}
+
+// renderPageStatus is renderPage with an explicit status code, for the pages
+// that answer a rejected form.
+func (h *Handler) renderPageStatus(w http.ResponseWriter, r *http.Request, status int, title, section string, body templ.Component) {
 	admin, _ := reqctx.AdminFrom(r.Context())
 	page := templates.Page{
-		Title:     "Admin - QZQ",
-		CSRFToken: reqctx.CSRFToken(r.Context()),
-		AdminUser: admin.Login,
+		Title:        title + " - QZQ admin",
+		CSRFToken:    reqctx.CSRFToken(r.Context()),
+		AdminUser:    admin.Login,
+		AdminSection: section,
 	}
-	h.render(w, r, templates.AdminWeb(page).Render, pages.AdminDashboard())
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	h.renderBody(w, r, templates.AdminWeb(page).Render, body)
 }
 
 func (h *Handler) rejectLogin(w http.ResponseWriter, r *http.Request, login string, cause error) {
@@ -139,8 +154,7 @@ func (h *Handler) renderLogin(w http.ResponseWriter, r *http.Request, status int
 	}
 }
 
-func (h *Handler) render(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+func (h *Handler) renderBody(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
 	ctx := templ.WithChildren(r.Context(), body)
 	if err := layout(ctx, w); err != nil {
 		h.log.Error("render admin page failed",
