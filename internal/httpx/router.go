@@ -33,21 +33,24 @@ type Health interface {
 
 // Deps is everything the router needs, injected by main.
 type Deps struct {
-	Config    config.Config
-	Log       *slog.Logger
-	Signer    *cookies.Signer
-	Catalog   catalog.Repository
-	Carts     *cart.Service
-	Orders    *order.Service
-	Payments  *payment.Service
-	Provider  nowpayments.Provider
-	Analytics analytics.Repository
-	Admins    admin.Repository
-	Sessions  middleware.SessionReader
-	Links     telegram.Repository
-	Bot       telegram.Bot
-	Health    Health
-	Limiter   *middleware.Limiter
+	Config      config.Config
+	Log         *slog.Logger
+	Signer      *cookies.Signer
+	Catalog     catalog.Repository
+	Carts       *cart.Service
+	Orders      *order.Service
+	Payments    *payment.Service
+	Provider    nowpayments.Provider
+	Analytics   analytics.Repository
+	Admins      admin.Repository
+	AdminOrders *order.AdminService
+	PaymentLog  admin.PaymentLog
+	Sessions    middleware.SessionReader
+	Links       telegram.Repository
+	ChatLinks   admin.ChatLinks
+	Bot         telegram.Bot
+	Health      Health
+	Limiter     *middleware.Limiter
 }
 
 // NewRouter mounts every route group behind the middleware chain of
@@ -67,7 +70,15 @@ func NewRouter(d Deps) http.Handler {
 		OrderTTL:    d.Config.OrderTTL,
 		IsDev:       d.Config.IsDev(),
 	})
-	adminHandler := admin.New(d.Admins, d.Signer, d.Log)
+	adminHandler := admin.New(admin.Deps{
+		Admins:   d.Admins,
+		Orders:   d.AdminOrders,
+		Catalog:  d.Catalog,
+		Payments: d.PaymentLog,
+		Links:    d.ChatLinks,
+		Cookies:  d.Signer,
+		Log:      d.Log,
+	})
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
 	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Log)
 	bot := webhook.NewTelegram(
@@ -98,6 +109,9 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("POST /admin/login", adminHandler.Login)
 	mux.Handle("POST /admin/logout", adminAuth(http.HandlerFunc(adminHandler.Logout)))
 	mux.Handle("GET /admin", adminAuth(http.HandlerFunc(adminHandler.Dashboard)))
+	mux.Handle("GET /admin/orders", adminAuth(http.HandlerFunc(adminHandler.Orders)))
+	mux.Handle("GET /admin/orders/{id}", adminAuth(http.HandlerFunc(adminHandler.Order)))
+	mux.Handle("POST /admin/orders/{id}/status", adminAuth(http.HandlerFunc(adminHandler.OrderStatus)))
 
 	if d.Config.IsDev() {
 		devHandler := dev.New(d.Log)

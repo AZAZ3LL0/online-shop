@@ -60,6 +60,7 @@ func serve(ctx context.Context) error {
 
 	cartService := cart.NewService(cartRepo, catalogRepo, shopCurrency, cfg.ShippingCents)
 	orderService := order.NewService(orderRepo, cfg.OrderTTL)
+	adminOrders := order.NewAdminService(orderRepo)
 	paymentService := payment.NewService(paymentRepo)
 	signer := cookies.NewSigner(cfg.Secret, !cfg.IsDev())
 	limiter := middleware.NewLimiter()
@@ -75,21 +76,24 @@ func serve(ctx context.Context) error {
 	)
 
 	router := httpx.NewRouter(httpx.Deps{
-		Config:    cfg,
-		Log:       log,
-		Signer:    signer,
-		Catalog:   catalogRepo,
-		Carts:     cartService,
-		Orders:    orderService,
-		Payments:  paymentService,
-		Provider:  payments,
-		Analytics: analyticsRepo,
-		Admins:    adminRepo,
-		Sessions:  adminRepo,
-		Links:     telegramRepo,
-		Bot:       bot,
-		Health:    store,
-		Limiter:   limiter,
+		Config:      cfg,
+		Log:         log,
+		Signer:      signer,
+		Catalog:     catalogRepo,
+		Carts:       cartService,
+		Orders:      orderService,
+		Payments:    paymentService,
+		Provider:    payments,
+		Analytics:   analyticsRepo,
+		Admins:      adminRepo,
+		AdminOrders: adminOrders,
+		PaymentLog:  paymentRepo,
+		Sessions:    adminRepo,
+		Links:       telegramRepo,
+		ChatLinks:   telegramRepo,
+		Bot:         bot,
+		Health:      store,
+		Limiter:     limiter,
 	})
 
 	server := &http.Server{

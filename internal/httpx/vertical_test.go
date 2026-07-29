@@ -61,6 +61,7 @@ type shopEnv struct {
 	store  *postgres.Store
 	orders *postgres.OrderRepo
 	notify *postgres.NotifyRepo
+	links  *postgres.TelegramRepo
 	fake   *nowpayments.Fake
 	bot    *telegram.Fake
 }
@@ -142,21 +143,24 @@ func startShopEnv(t *testing.T) *shopEnv {
 	bot := telegram.NewFake(log)
 
 	router := httpx.NewRouter(httpx.Deps{
-		Config:    cfg,
-		Log:       log,
-		Signer:    cookies.NewSigner(cfg.Secret, false),
-		Catalog:   catalogRepo,
-		Carts:     cart.NewService(cartRepo, catalogRepo, "USD", 0),
-		Orders:    order.NewService(orderRepo, cfg.OrderTTL),
-		Payments:  payment.NewService(paymentRepo),
-		Provider:  fake,
-		Analytics: postgres.NewAnalyticsRepo(store),
-		Admins:    adminRepo,
-		Sessions:  adminRepo,
-		Links:     telegramRepo,
-		Bot:       bot,
-		Health:    store,
-		Limiter:   middleware.NewLimiter(),
+		Config:      cfg,
+		Log:         log,
+		Signer:      cookies.NewSigner(cfg.Secret, false),
+		Catalog:     catalogRepo,
+		Carts:       cart.NewService(cartRepo, catalogRepo, "USD", 0),
+		Orders:      order.NewService(orderRepo, cfg.OrderTTL),
+		Payments:    payment.NewService(paymentRepo),
+		Provider:    fake,
+		Analytics:   postgres.NewAnalyticsRepo(store),
+		Admins:      adminRepo,
+		AdminOrders: order.NewAdminService(orderRepo),
+		PaymentLog:  paymentRepo,
+		Sessions:    adminRepo,
+		Links:       telegramRepo,
+		ChatLinks:   telegramRepo,
+		Bot:         bot,
+		Health:      store,
+		Limiter:     middleware.NewLimiter(),
 	})
 
 	server := &httptest.Server{
@@ -172,6 +176,7 @@ func startShopEnv(t *testing.T) *shopEnv {
 	}
 	return &shopEnv{
 		server: server,
+		links:  telegramRepo,
 		client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
 		store:  store,
 		orders: orderRepo,

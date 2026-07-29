@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,6 +22,13 @@ type LinkedOrder struct {
 	ID     uuid.UUID
 	Number string
 	Status order.Status
+}
+
+// ChatLink is one chat that follows an order, as the admin card lists it.
+type ChatLink struct {
+	ChatID   int64
+	Username string
+	LinkedAt time.Time
 }
 
 // Repository is the storage the bot depends on, declared here by its consumer

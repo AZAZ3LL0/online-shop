@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/qzq-kiim/shop/internal/auth"
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
@@ -33,16 +35,39 @@ type Repository interface {
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 }
 
+// Deps is everything the admin panel needs, injected by the router.
+type Deps struct {
+	Admins   Repository
+	Orders   *order.AdminService
+	Catalog  catalog.Repository
+	Payments PaymentLog
+	Links    ChatLinks
+	Cookies  *cookies.Signer
+	Log      *slog.Logger
+}
+
 // Handler serves the admin panel.
 type Handler struct {
-	admins  Repository
-	cookies *cookies.Signer
-	log     *slog.Logger
+	admins   Repository
+	orders   *order.AdminService
+	catalog  catalog.Repository
+	payments PaymentLog
+	links    ChatLinks
+	cookies  *cookies.Signer
+	log      *slog.Logger
 }
 
 // New wires the admin handler.
-func New(admins Repository, signer *cookies.Signer, log *slog.Logger) *Handler {
-	return &Handler{admins: admins, cookies: signer, log: log}
+func New(d Deps) *Handler {
+	return &Handler{
+		admins:   d.Admins,
+		orders:   d.Orders,
+		catalog:  d.Catalog,
+		payments: d.Payments,
+		links:    d.Links,
+		cookies:  d.Cookies,
+		log:      d.Log,
+	}
 }
 
 // LoginForm renders the sign-in page.
@@ -169,4 +194,14 @@ func clientIP(r *http.Request) string {
 		return ""
 	}
 	return host
+}
+
+// fail logs the cause and answers with a generic message: nothing internal
+// leaves the panel (tech.md §9.13).
+func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	h.log.Error("admin request failed",
+		slog.String("request_id", reqctx.RequestID(r.Context())),
+		slog.String("path", r.URL.Path),
+		slog.String("error", err.Error()))
+	http.Error(w, "internal server error", http.StatusInternalServerError)
 }
