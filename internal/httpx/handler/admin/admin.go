@@ -17,6 +17,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/auth"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
@@ -41,6 +42,7 @@ type Deps struct {
 	Orders   *order.AdminService
 	Catalog  catalog.Repository
 	Products *catalog.AdminService
+	Settings *settings.Service
 	Payments PaymentLog
 	Links    ChatLinks
 	Cookies  *cookies.Signer
@@ -54,6 +56,7 @@ type Handler struct {
 	orders   *order.AdminService
 	catalog  catalog.Repository
 	products *catalog.AdminService
+	settings *settings.Service
 	payments PaymentLog
 	links    ChatLinks
 	cookies  *cookies.Signer
@@ -68,6 +71,7 @@ func New(d Deps) *Handler {
 		orders:   d.Orders,
 		catalog:  d.Catalog,
 		products: d.Products,
+		settings: d.Settings,
 		payments: d.Payments,
 		links:    d.Links,
 		cookies:  d.Cookies,

@@ -1,0 +1,63 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/qzq-kiim/shop/internal/domain/settings"
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
+
+// AdminSettings edits the parameters the shop runs on: delivery, the reservation
+// window and the pause switch (tech.md §5.3).
+templ AdminSettings(view AdminSettingsView) {
+	<h1 class="mb-6 text-2xl font-semibold tracking-tight">Settings</h1>
+	if view.Saved {
+		<div class="mb-6">
+			@components.Alert(components.ToneSuccess, "The settings are live.")
+		</div>
+	}
+	if view.Error != "" {
+		<div class="mb-6">
+			@components.Alert(components.ToneDanger, view.Error)
+		</div>
+	}
+	if view.Values.ShopPaused {
+		<div class="mb-6">
+			@components.Alert(components.ToneWarning, "The shop is paused: nobody can place an order right now.")
+		</div>
+	}
+	<form method="post" action="/admin/settings" class="grid max-w-xl gap-5 border border-neutral-200 bg-white p-4">
+		<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
+		<div>
+			@components.Input("shipping_cents", "Delivery, in cents", strconv.FormatInt(view.Values.ShippingCents, 10), "number", "")
+			<p class="mt-1 text-xs text-neutral-500">
+				{ view.ShippingHint() }
+			</p>
+		</div>
+		<div>
+			@components.Input("order_ttl_minutes", "Reservation window, in minutes", strconv.Itoa(view.Values.TTLMinutes()), "number", "")
+			<p class="mt-1 text-xs text-neutral-500">
+				Between { strconv.Itoa(settings.MinTTLMinutes) } and { strconv.Itoa(settings.MaxTTLMinutes) } minutes. Sizes go back on the shelf when it runs out.
+			</p>
+		</div>
+		<label class="flex items-start gap-3 text-sm">
+			<input
+				type="checkbox"
+				name="shop_paused"
+				value="on"
+				checked?={ view.Values.ShopPaused }
+				class="mt-1"
+			/>
+			<span>
+				<span class="font-medium">Pause the shop</span>
+				<span class="block text-xs text-neutral-500">
+					The catalogue stays readable, but no new order can be placed.
+				</span>
+			</span>
+		</label>
+		<div>
+			@components.Button(components.ButtonPrimary, "Save the settings", templ.Attributes{"type": "submit"})
+		</div>
+	</form>
+	<p class="mt-4 text-xs text-neutral-500">{ view.DefaultsHint() }</p>
+}

@@ -26,6 +26,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
@@ -62,6 +63,7 @@ type shopEnv struct {
 	store  *postgres.Store
 	orders *postgres.OrderRepo
 	notify *postgres.NotifyRepo
+	config *settings.Service
 	links  *postgres.TelegramRepo
 	fake   *nowpayments.Fake
 	bot    *telegram.Fake
@@ -139,6 +141,7 @@ func startShopEnv(t *testing.T) *shopEnv {
 	orderRepo := postgres.NewOrderRepo(store)
 	paymentRepo := postgres.NewPaymentRepo(store)
 	telegramRepo := postgres.NewTelegramRepo(store)
+	shopSettings := settings.NewService(postgres.NewSettingsRepo(store), settings.Values{OrderTTL: cfg.OrderTTL})
 	fake := nowpayments.NewFake(cfg.Secret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	bot := telegram.NewFake(log)
@@ -148,14 +151,15 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Log:          log,
 		Signer:       cookies.NewSigner(cfg.Secret, false),
 		Catalog:      catalogRepo,
-		Carts:        cart.NewService(cartRepo, catalogRepo, "USD", 0),
-		Orders:       order.NewService(orderRepo, cfg.OrderTTL),
+		Carts:        cart.NewService(cartRepo, catalogRepo, "USD", shopSettings),
+		Orders:       order.NewService(orderRepo, shopSettings),
 		Payments:     payment.NewService(paymentRepo),
 		Provider:     fake,
 		Analytics:    postgres.NewAnalyticsRepo(store),
 		Admins:       adminRepo,
 		AdminOrders:  order.NewAdminService(orderRepo),
 		AdminCatalog: catalog.NewAdminService(postgres.NewCatalogAdminRepo(store), "USD"),
+		Settings:     shopSettings,
 		Currency:     "USD",
 		PaymentLog:   paymentRepo,
 		Sessions:     adminRepo,
@@ -180,6 +184,7 @@ func startShopEnv(t *testing.T) *shopEnv {
 	return &shopEnv{
 		server: server,
 		links:  telegramRepo,
+		config: shopSettings,
 		client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
 		store:  store,
 		orders: orderRepo,

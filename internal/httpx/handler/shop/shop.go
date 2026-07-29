@@ -14,6 +14,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/cart"
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
 	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
@@ -39,7 +40,7 @@ type Deps struct {
 	BaseURL   string
 	// BotUsername drives the Telegram entry point; empty hides it entirely.
 	BotUsername string
-	OrderTTL    time.Duration
+	Settings    *settings.Service
 	IsDev       bool
 }
 
@@ -54,7 +55,7 @@ type Handler struct {
 	log         *slog.Logger
 	baseURL     string
 	botUsername string
-	orderTTL    time.Duration
+	settings    *settings.Service
 	isDev       bool
 }
 
@@ -70,7 +71,7 @@ func New(d Deps) *Handler {
 		log:         d.Log,
 		baseURL:     d.BaseURL,
 		botUsername: d.BotUsername,
-		orderTTL:    d.OrderTTL,
+		settings:    d.Settings,
 		isDev:       d.IsDev,
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/admin"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/dev"
@@ -45,6 +46,7 @@ type Deps struct {
 	Admins       admin.Repository
 	AdminOrders  *order.AdminService
 	AdminCatalog *catalog.AdminService
+	Settings     *settings.Service
 	PaymentLog   admin.PaymentLog
 	Sessions     middleware.SessionReader
 	Links        telegram.Repository
@@ -69,7 +71,7 @@ func NewRouter(d Deps) http.Handler {
 		Log:         d.Log,
 		BaseURL:     d.Config.BaseURL,
 		BotUsername: d.Config.Telegram.BotUsername,
-		OrderTTL:    d.Config.OrderTTL,
+		Settings:    d.Settings,
 		IsDev:       d.Config.IsDev(),
 	})
 	adminHandler := admin.New(admin.Deps{
@@ -77,6 +79,7 @@ func NewRouter(d Deps) http.Handler {
 		Orders:   d.AdminOrders,
 		Catalog:  d.Catalog,
 		Products: d.AdminCatalog,
+		Settings: d.Settings,
 		Payments: d.PaymentLog,
 		Links:    d.ChatLinks,
 		Cookies:  d.Signer,
@@ -119,6 +122,8 @@ func NewRouter(d Deps) http.Handler {
 	mux.Handle("GET /admin/products", adminAuth(http.HandlerFunc(adminHandler.Products)))
 	mux.Handle("POST /admin/products/{id}/price", adminAuth(http.HandlerFunc(adminHandler.ProductPrice)))
 	mux.Handle("POST /admin/products/{id}/stock", adminAuth(http.HandlerFunc(adminHandler.ProductStock)))
+	mux.Handle("GET /admin/settings", adminAuth(http.HandlerFunc(adminHandler.Settings)))
+	mux.Handle("POST /admin/settings", adminAuth(http.HandlerFunc(adminHandler.SettingsSave)))
 
 	if d.Config.IsDev() {
 		devHandler := dev.New(d.Log)

@@ -17,11 +17,18 @@ import (
 	"github.com/qzq-kiim/shop/web/templates/pages"
 )
 
+// pausedMessage is what a buyer is told while the shop is paused. It says what
+// is happening without blaming the buyer's cart, which is still intact.
+const pausedMessage = "The shop is on pause right now, so no new order can be placed. Your cart is kept."
+
 // CheckoutForm shows the buyer form. An empty cart has nothing to check out.
 func (h *Handler) CheckoutForm(w http.ResponseWriter, r *http.Request) {
 	view, ok := h.checkoutView(w, r)
 	if !ok {
 		return
+	}
+	if view.Paused {
+		view.Error = pausedMessage
 	}
 	h.recordEvent(r, analytics.EventCheckoutStarted, nil)
 	h.renderCheckout(w, r, view, http.StatusOK)
@@ -32,6 +39,13 @@ func (h *Handler) CheckoutForm(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 	view, ok := h.checkoutView(w, r)
 	if !ok {
+		return
+	}
+	if view.Paused {
+		// A paused shop reserves nothing and charges nothing (tech.md §5.3,
+		// settings.shop_paused).
+		view.Error = pausedMessage
+		h.renderCheckout(w, r, view, http.StatusServiceUnavailable)
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -118,10 +132,17 @@ func (h *Handler) checkoutView(w http.ResponseWriter, r *http.Request) (pages.Ch
 		http.Redirect(w, r, "/cart", http.StatusSeeOther)
 		return pages.CheckoutView{}, false
 	}
+
+	shop, err := h.settings.Values(r.Context())
+	if err != nil {
+		h.fail(w, r, err)
+		return pages.CheckoutView{}, false
+	}
 	return pages.CheckoutView{
 		Cart:               cartView,
 		CSRFToken:          reqctx.CSRFToken(r.Context()),
-		ReservationMinutes: int(h.orderTTL.Minutes()),
+		ReservationMinutes: shop.TTLMinutes(),
+		Paused:             shop.ShopPaused,
 	}, true
 }
 

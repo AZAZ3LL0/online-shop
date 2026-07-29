@@ -17,21 +17,28 @@ type Totals struct {
 	Total    money.Amount
 }
 
+// ShippingSource tells the cart what delivery costs right now. It is declared
+// here by its consumer: the cart only ever needs this one number (tech.md §16.4).
+type ShippingSource interface {
+	ShippingCents(ctx context.Context) (int64, error)
+}
+
 // Service applies the cart rules. Handlers hold no cart logic of their own.
 type Service struct {
 	carts    Repository
 	catalog  catalog.Repository
 	currency string
-	shipping money.Amount
+	shipping ShippingSource
 }
 
-// NewService wires the cart service.
-func NewService(carts Repository, products catalog.Repository, currency string, shippingCents int64) *Service {
+// NewService wires the cart service. Delivery is priced from settings, never
+// from a number baked in at startup (tech.md §15).
+func NewService(carts Repository, products catalog.Repository, currency string, shipping ShippingSource) *Service {
 	return &Service{
 		carts:    carts,
 		catalog:  products,
 		currency: currency,
-		shipping: money.New(shippingCents, currency),
+		shipping: shipping,
 	}
 }
 
@@ -106,7 +113,7 @@ func (s *Service) View(ctx context.Context, cartID uuid.UUID) (Cart, Totals, err
 	if err != nil {
 		return Cart{}, Totals{}, err
 	}
-	totals, err := s.Totals(c)
+	totals, err := s.Totals(ctx, c)
 	if err != nil {
 		return Cart{}, Totals{}, err
 	}
@@ -114,14 +121,18 @@ func (s *Service) View(ctx context.Context, cartID uuid.UUID) (Cart, Totals, err
 }
 
 // Totals prices a cart: subtotal from the lines, shipping from settings.
-func (s *Service) Totals(c Cart) (Totals, error) {
+func (s *Service) Totals(ctx context.Context, c Cart) (Totals, error) {
 	subtotal, err := c.Subtotal(s.currency)
 	if err != nil {
 		return Totals{}, err
 	}
-	shipping := s.shipping
-	if c.IsEmpty() {
-		shipping = money.Zero(s.currency)
+	shipping := money.Zero(s.currency)
+	if !c.IsEmpty() {
+		cents, err := s.shipping.ShippingCents(ctx)
+		if err != nil {
+			return Totals{}, fmt.Errorf("cart shipping: %w", err)
+		}
+		shipping = money.New(cents, s.currency)
 	}
 	total, err := subtotal.Add(shipping)
 	if err != nil {

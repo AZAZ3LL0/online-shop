@@ -14,6 +14,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/money"
 	"github.com/qzq-kiim/shop/internal/telegram"
 	"github.com/qzq-kiim/shop/web/templates/components"
@@ -287,6 +288,29 @@ func changedByLabel(entry catalog.PriceEntry) string {
 		return "before the panel"
 	}
 	return entry.ChangedBy
+}
+
+// AdminSettingsView is the settings form: what is stored now and what the
+// environment would fall back to.
+type AdminSettingsView struct {
+	Values    settings.Values
+	Defaults  settings.Values
+	Error     string
+	Saved     bool
+	CSRFToken string
+}
+
+// ShippingHint spells the stored cents out as money, so nobody ships for $1500
+// by typing the price in dollars.
+func (v AdminSettingsView) ShippingHint() string {
+	return "That is " + money.New(v.Values.ShippingCents, "USD").String() + " added to every order that has something in it."
+}
+
+// DefaultsHint says what the shop falls back to when a key is cleared.
+func (v AdminSettingsView) DefaultsHint() string {
+	return "Without a stored value the shop runs on its environment: " +
+		money.New(v.Defaults.ShippingCents, "USD").String() + " delivery and a " +
+		strconv.Itoa(v.Defaults.TTLMinutes()) + " minute reservation window."
 }
 
 // adminFact is one label/value line of a card panel.

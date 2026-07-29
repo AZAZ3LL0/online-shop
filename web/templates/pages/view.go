@@ -55,6 +55,9 @@ type CheckoutView struct {
 	Error              string
 	CSRFToken          string
 	ReservationMinutes int
+	// Paused mirrors settings.shop_paused: the form is shown, but the order
+	// cannot be placed.
+	Paused bool
 }
 
 // FieldError returns the message shown under one field, empty when it is fine.
