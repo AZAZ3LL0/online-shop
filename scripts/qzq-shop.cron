@@ -1,0 +1,11 @@
+# Backup schedule for the VPS. Install as root with:
+#   install -m 644 scripts/qzq-shop.cron /etc/cron.d/qzq-shop
+# and edit DEPLOY_PATH to the checkout the deploy workflow pulls into.
+#
+# The dump runs at 03:10 UTC, off the traffic peak and well clear of the
+# certificate renewal window. Output goes to the journal, not to mail.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+10 3 * * * root cd /srv/qzq-shop && ./scripts/backup-db.sh 2>&1 | logger -t qzq-backup
