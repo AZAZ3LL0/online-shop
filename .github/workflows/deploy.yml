@@ -18,9 +18,26 @@ jobs:
     environment: production
 
     steps:
+      # Until the VPS of S8.1 exists there is nothing to ssh into, and a job
+      # that fails for that reason turns every merge to main red and trains us
+      # to ignore the one failure that will matter. Skip loudly instead.
+      - name: check the deploy target is configured
+        id: target
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::DEPLOY_HOST is not set, see docs/deploy.md"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.target.outputs.configured == 'true'
 
       - name: deploy over ssh
+        if: steps.target.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
