@@ -371,6 +371,27 @@ func (q *Queries) ReserveVariant(ctx context.Context, arg ReserveVariantParams) 
 	return result.RowsAffected(), nil
 }
 
+const restockVariant = `-- name: RestockVariant :execrows
+UPDATE product_variants
+SET stock = stock + $1::int
+WHERE id = $2
+`
+
+type RestockVariantParams struct {
+	Qty       int32
+	VariantID uuid.UUID
+}
+
+// Cancelling a paid order puts the units back on the shelf: paid already took
+// them out of stock, and an order cancelled before it ships was never sent.
+func (q *Queries) RestockVariant(ctx context.Context, arg RestockVariantParams) (int64, error) {
+	result, err := q.db.Exec(ctx, restockVariant, arg.Qty, arg.VariantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setOrderStatus = `-- name: SetOrderStatus :execrows
 UPDATE orders
 SET status = $2,
