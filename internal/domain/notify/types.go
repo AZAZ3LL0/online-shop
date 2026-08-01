@@ -31,13 +31,15 @@ const (
 // MaxAttempts is the retry budget before a row is parked as failed.
 const MaxAttempts = 5
 
-// backoff is the fixed retry ladder from tech.md §5.5.
+// backoff is the retry ladder of tech.md §5.5. There is one delay per gap
+// between attempts, so a budget of five attempts leaves room for four: the
+// section lists a fifth (6h) that no attempt can ever wait out, and carrying it
+// here would be dead code that reads like a promise the worker does not keep.
 var backoff = []time.Duration{
 	30 * time.Second,
 	2 * time.Minute,
 	10 * time.Minute,
 	time.Hour,
-	6 * time.Hour,
 }
 
 // Notification is one queued outbound message. The rendered text travels in
