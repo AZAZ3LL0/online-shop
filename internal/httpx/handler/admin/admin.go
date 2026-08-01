@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"time"
 
@@ -115,7 +114,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := h.admins.CreateSession(r.Context(), admin.ID, clientIP(r), r.UserAgent(), time.Now().Add(sessionTTL))
+	sessionID, err := h.admins.CreateSession(r.Context(), admin.ID, middleware.ClientIP(r), r.UserAgent(), time.Now().Add(sessionTTL))
 	if err != nil {
 		h.log.Error("create admin session failed",
 			slog.String("request_id", reqctx.RequestID(r.Context())),
@@ -253,12 +252,4 @@ func (h *Handler) renderBody(w http.ResponseWriter, r *http.Request, layout func
 			slog.String("request_id", reqctx.RequestID(r.Context())),
 			slog.String("error", err.Error()))
 	}
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return ""
-	}
-	return host
 }

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -86,7 +85,7 @@ func RateLimit(l *Limiter) Middleware {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if !l.Allow(name+"|"+clientIP(r), rule) {
+			if !l.Allow(name+"|"+ClientIP(r), rule) {
 				w.Header().Set("Retry-After", "60")
 				http.Error(w, "too many requests", http.StatusTooManyRequests)
 				return
@@ -106,14 +105,4 @@ func match(r *http.Request) (Rule, string, bool) {
 		}
 	}
 	return Rule{}, "", false
-}
-
-// clientIP trusts nothing from headers: the reverse proxy is the only hop and
-// it sets RemoteAddr. Spoofable X-Forwarded-For would defeat the limit.
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
