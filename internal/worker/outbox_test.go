@@ -204,26 +204,28 @@ func TestOutboxParksUnrenderablePayload(t *testing.T) {
 
 func TestBackoffLadder(t *testing.T) {
 	now := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
+	// tech.md §5.5: 30s, 2m, 10m, 1h, at most five attempts. Five attempts have
+	// four waits between them, so the ladder is exactly this long.
 	want := []time.Duration{
 		30 * time.Second,
 		2 * time.Minute,
 		10 * time.Minute,
 		time.Hour,
-		6 * time.Hour,
+	}
+	if len(want) != notify.MaxAttempts-1 {
+		t.Fatalf("the ladder has %d delays for %d attempts: one of them is unreachable",
+			len(want), notify.MaxAttempts)
 	}
 	for i, d := range want {
 		next, ok := notify.NextAttemptAt(now, i+1)
-		if i+1 >= notify.MaxAttempts {
-			if ok {
-				t.Fatalf("attempt %d must exhaust the budget", i+1)
-			}
-			continue
-		}
 		if !ok {
 			t.Fatalf("attempt %d must be retried", i+1)
 		}
 		if got := next.Sub(now); got != d {
 			t.Errorf("attempt %d backoff = %v, want %v", i+1, got, d)
 		}
+	}
+	if _, ok := notify.NextAttemptAt(now, notify.MaxAttempts); ok {
+		t.Errorf("attempt %d must exhaust the budget, not schedule another", notify.MaxAttempts)
 	}
 }
