@@ -85,6 +85,15 @@ func ts(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
+// nullTime turns an absent bound into a NULL argument, which the filtered
+// queries read as "this filter is not set".
+func nullTime(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return ts(*t)
+}
+
 func nullString(s string) *string {
 	if s == "" {
 		return nil

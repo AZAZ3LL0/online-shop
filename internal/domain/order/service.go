@@ -16,16 +16,23 @@ import (
 // checkout gives up. Four random characters over one day collide rarely.
 const numberAttempts = 5
 
+// TTLSource tells the order service how long a stock reservation is held. It is
+// declared here by its consumer (tech.md §16.4).
+type TTLSource interface {
+	OrderTTL(ctx context.Context) (time.Duration, error)
+}
+
 // Service places orders and moves them along the status machine. Handlers hold
 // no order rules of their own.
 type Service struct {
 	repo Repository
-	ttl  time.Duration
+	ttl  TTLSource
 	now  func() time.Time
 }
 
-// NewService wires the order service with the reservation lifetime.
-func NewService(repo Repository, ttl time.Duration) *Service {
+// NewService wires the order service. The reservation lifetime is read from
+// settings at checkout time, so changing it needs no release (tech.md §5.3).
+func NewService(repo Repository, ttl TTLSource) *Service {
 	return &Service{repo: repo, ttl: ttl, now: time.Now}
 }
 
@@ -53,9 +60,14 @@ func (s *Service) Place(ctx context.Context, in PlaceInput) (Order, FieldErrors,
 		return Order{}, nil, fmt.Errorf("%w: the cart is empty", ErrValidation)
 	}
 
+	ttl, err := s.ttl.OrderTTL(ctx)
+	if err != nil {
+		return Order{}, nil, err
+	}
+
 	now := s.now().UTC()
 	for attempt := range numberAttempts {
-		draft, err := s.draft(customer, in, now)
+		draft, err := s.draft(customer, in, now, ttl)
 		if err != nil {
 			return Order{}, nil, err
 		}
@@ -72,7 +84,7 @@ func (s *Service) Place(ctx context.Context, in PlaceInput) (Order, FieldErrors,
 	return Order{}, nil, fmt.Errorf("place order: %w", ErrNumberTaken)
 }
 
-func (s *Service) draft(customer Customer, in PlaceInput, now time.Time) (Draft, error) {
+func (s *Service) draft(customer Customer, in PlaceInput, now time.Time, ttl time.Duration) (Draft, error) {
 	number, err := NewNumber(now)
 	if err != nil {
 		return Draft{}, err
@@ -97,7 +109,7 @@ func (s *Service) draft(customer Customer, in PlaceInput, now time.Time) (Draft,
 		VisitorID:   in.VisitorID,
 		FirstTouch:  in.FirstTouch,
 		LastTouch:   in.LastTouch,
-		ExpiresAt:   now.Add(s.ttl),
+		ExpiresAt:   now.Add(ttl),
 	}, nil
 }
 

@@ -1,0 +1,56 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
+
+// AdminOrders is the order list with its filter bar, tech.md §8.4.
+templ AdminOrders(view AdminOrdersView) {
+	<div class="mb-6 flex items-baseline justify-between gap-4">
+		<h1 class="text-2xl font-semibold tracking-tight">Orders</h1>
+		<span class="text-sm text-neutral-500">{ strconv.Itoa(view.List.Total) } matching</span>
+	</div>
+	<form method="get" action="/admin/orders" class="mb-6 grid gap-3 border border-neutral-200 bg-white p-4 md:grid-cols-6">
+		@components.Select("status", "Status", view.statusOptions(), view.Filter.Status)
+		@components.Input("from", "From", view.Filter.From, "date", "")
+		@components.Input("to", "To", view.Filter.To, "date", "")
+		@components.Select("product", "Model", view.productOptions(), view.Filter.ProductID)
+		@components.Input("number", "Number", view.Filter.Number, "text", "")
+		<div class="flex items-end gap-3">
+			@components.Button(components.ButtonPrimary, "Filter", templ.Attributes{"type": "submit"})
+			<a href="/admin/orders" class="pb-3 text-sm text-neutral-500 underline">reset</a>
+		</div>
+	</form>
+	if len(view.List.Orders) == 0 {
+		@components.EmptyState("No orders match", "Widen the period or clear the filters.")
+	} else {
+		<div class="border border-neutral-200 bg-white">
+			@components.Table([]string{"Number", "Placed", "Status", "Customer", "Units", "Total"}, view.rows())
+		</div>
+		<div class="mt-6">
+			@components.Pagination(view.List.Page, view.List.TotalPages(), view.BaseURL())
+		</div>
+	}
+}
+
+// adminOrderRow is one line of the order list.
+templ adminOrderRow(o order.Summary) {
+	<td class="px-3 py-2">
+		<a href={ templ.SafeURL("/admin/orders/" + o.ID.String()) } class="font-medium underline">{ o.Number }</a>
+	</td>
+	<td class="px-3 py-2 text-neutral-500">{ adminTime(o.CreatedAt) }</td>
+	<td class="px-3 py-2">
+		@components.StatusPill(o.Status)
+	</td>
+	<td class="px-3 py-2">
+		<span>{ o.CustomerName }</span>
+		<span class="block text-xs text-neutral-500">{ o.CustomerContact }</span>
+	</td>
+	<td class="px-3 py-2 tabular-nums">{ strconv.Itoa(o.Units) }</td>
+	<td class="px-3 py-2">
+		@components.Money(o.Total)
+	</td>
+}

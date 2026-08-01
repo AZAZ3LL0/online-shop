@@ -16,6 +16,9 @@ import (
 
 	"github.com/qzq-kiim/shop/internal/auth"
 	"github.com/qzq-kiim/shop/internal/domain/analytics"
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
+	"github.com/qzq-kiim/shop/internal/domain/order"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
@@ -36,17 +39,51 @@ type Repository interface {
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 }
 
+// Deps is everything the admin panel needs, injected by the router.
+type Deps struct {
+	Admins   Repository
+	Metrics  analytics.MetricsRepository
+	Orders   *order.AdminService
+	Catalog  catalog.Repository
+	Products *catalog.AdminService
+	Settings *settings.Service
+	Payments PaymentLog
+	Links    ChatLinks
+	Cookies  *cookies.Signer
+	Currency string
+	Log      *slog.Logger
+}
+
 // Handler serves the admin panel.
 type Handler struct {
-	admins  Repository
-	metrics analytics.MetricsRepository
-	cookies *cookies.Signer
-	log     *slog.Logger
+	admins   Repository
+	metrics  analytics.MetricsRepository
+	orders   *order.AdminService
+	catalog  catalog.Repository
+	products *catalog.AdminService
+	settings *settings.Service
+	payments PaymentLog
+	links    ChatLinks
+	cookies  *cookies.Signer
+	currency string
+	log      *slog.Logger
 }
 
 // New wires the admin handler.
-func New(admins Repository, metrics analytics.MetricsRepository, signer *cookies.Signer, log *slog.Logger) *Handler {
-	return &Handler{admins: admins, metrics: metrics, cookies: signer, log: log}
+func New(d Deps) *Handler {
+	return &Handler{
+		admins:   d.Admins,
+		metrics:  d.Metrics,
+		orders:   d.Orders,
+		catalog:  d.Catalog,
+		products: d.Products,
+		settings: d.Settings,
+		payments: d.Payments,
+		links:    d.Links,
+		cookies:  d.Cookies,
+		currency: d.Currency,
+		log:      d.Log,
+	}
 }
 
 // LoginForm renders the sign-in page.
@@ -114,7 +151,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.renderAdmin(w, r, "Admin - QZQ", pages.AdminDashboard(view))
+	h.renderPage(w, r, "Admin", templates.SectionDashboard, pages.AdminDashboard(view))
 }
 
 // Analytics is the full report: the funnel and every traffic source (§8.2).
@@ -123,7 +160,7 @@ func (h *Handler) Analytics(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.renderAdmin(w, r, "Analytics - QZQ", pages.AdminAnalytics(view))
+	h.renderPage(w, r, "Analytics", templates.SectionAnalytics, pages.AdminAnalytics(view))
 }
 
 // metricsView loads the report both admin pages are built from. It answers the
@@ -147,22 +184,32 @@ func (h *Handler) metricsView(w http.ResponseWriter, r *http.Request) (pages.Met
 	return pages.MetricsView{Metrics: report, Path: r.URL.Path, Compact: IsMini(r)}, true
 }
 
-// renderAdmin writes one admin page into the layout the request asks for. This
-// is the whole difference between the browser panel and the Mini App: the
-// handlers, the queries and the view models above are the same (tech.md §5.3).
-func (h *Handler) renderAdmin(w http.ResponseWriter, r *http.Request, title string, body templ.Component) {
+// renderPage writes one admin page: the shell around the body, with the
+// navigation entry of section highlighted.
+func (h *Handler) renderPage(w http.ResponseWriter, r *http.Request, title, section string, body templ.Component) {
+	h.renderPageStatus(w, r, http.StatusOK, title, section, body)
+}
+
+// renderPageStatus is renderPage with an explicit status code, for the pages
+// that answer a rejected form. Choosing the layout here is the whole difference
+// between the browser panel and the Mini App: the handlers, the queries and the
+// view models are the same (tech.md §5.3).
+func (h *Handler) renderPageStatus(w http.ResponseWriter, r *http.Request, status int, title, section string, body templ.Component) {
 	admin, _ := reqctx.AdminFrom(r.Context())
 	page := templates.Page{
-		Title:     title,
-		CSRFToken: reqctx.CSRFToken(r.Context()),
-		AdminUser: admin.Login,
+		Title:        title + " - QZQ admin",
+		CSRFToken:    reqctx.CSRFToken(r.Context()),
+		AdminUser:    admin.Login,
+		AdminSection: section,
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
 	if IsMini(r) {
 		page.Theme = theme(h.cookies, r)
-		h.render(w, r, templates.AdminMini(page).Render, body)
+		h.renderBody(w, r, templates.AdminMini(page).Render, body)
 		return
 	}
-	h.render(w, r, templates.AdminWeb(page).Render, body)
+	h.renderBody(w, r, templates.AdminWeb(page).Render, body)
 }
 
 // fail logs the cause and answers with a generic message, tech.md §9.13.
@@ -199,8 +246,7 @@ func (h *Handler) renderLogin(w http.ResponseWriter, r *http.Request, status int
 	}
 }
 
-func (h *Handler) render(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+func (h *Handler) renderBody(w http.ResponseWriter, r *http.Request, layout func(context.Context, io.Writer) error, body templ.Component) {
 	ctx := templ.WithChildren(r.Context(), body)
 	if err := layout(ctx, w); err != nil {
 		h.log.Error("render admin page failed",

@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 )
@@ -214,15 +212,4 @@ func sessionCookie(t *testing.T, env *shopEnv) string {
 	}
 	t.Fatal("the client was never given a sid cookie")
 	return ""
-}
-
-// newClient is a fresh browser with its own cookie jar and no redirect
-// following, for the cases that assert on the redirect itself.
-func newClient(t *testing.T) *http.Client {
-	t.Helper()
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		t.Fatalf("cookie jar: %v", err)
-	}
-	return &http.Client{Jar: jar, Timeout: 20 * time.Second}
 }

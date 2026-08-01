@@ -224,7 +224,7 @@ func TestMiniAppPagesAreClosedWithoutASession(t *testing.T) {
 	client := newClient(t)
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
-	for _, path := range []string{"/tgapp/", "/tgapp/analytics"} {
+	for _, path := range []string{"/tgapp/", "/tgapp/analytics", "/tgapp/orders", "/tgapp/products"} {
 		status, _ := get(t, client, env.server.URL+path)
 		if status != http.StatusSeeOther {
 			t.Errorf("GET %s without a session = %d, want 303 back to the launch page", path, status)
@@ -240,4 +240,40 @@ func mustGet(t *testing.T, client *http.Client, target string) string {
 		t.Fatalf("GET %s = %d", target, status)
 	}
 	return body
+}
+
+// S7.2 asks for the S5 pages under the AdminMini layout: the same handlers,
+// the same data, a different shell (tech.md §5.3). They could only be mounted
+// once the admin panel itself was on main.
+func TestMiniAppServesTheAdminPages(t *testing.T) {
+	env := startShopEnv(t)
+	launchAdmin(t, env, allowedTelegramID)
+	client := newClient(t)
+
+	status, _ := launch(t, client, env, url.Values{
+		"init_data": {initData(t, allowedTelegramID, time.Now().UTC())},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("launch = %d, want 200", status)
+	}
+
+	for _, page := range []struct {
+		path   string
+		marker string
+	}{
+		{"/tgapp/orders", "Orders"},
+		{"/tgapp/products", "Products"},
+	} {
+		body := mustGet(t, client, env.server.URL+page.path)
+		if !strings.Contains(body, page.marker) {
+			t.Errorf("%s does not carry %q", page.path, page.marker)
+		}
+		if !strings.Contains(body, `class="admin-mini`) {
+			t.Errorf("%s is not rendered in the AdminMini layout", page.path)
+		}
+		// Inside Telegram there is no sign-in form to fall back to.
+		if strings.Contains(body, `name="password"`) {
+			t.Errorf("%s carries a sign-in form", page.path)
+		}
+	}
 }
