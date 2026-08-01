@@ -285,3 +285,46 @@ func TestACancelledOrderStaysCancelled(t *testing.T) {
 		t.Errorf("stock = %d after the refused moves, want %d", stock, before)
 	}
 }
+
+// tech.md §5.4: a short payment is not a paid order and does not announce
+// itself in the status, so the panel has to raise it where an operator looks.
+func TestAdminFlagsAShortPaidOrder(t *testing.T) {
+	env := startShopEnv(t)
+	p := checkout(t, env, "2")
+	if status, body := callback(t, env, p.number, "partially_paid", true); status != http.StatusOK {
+		t.Fatalf("partial callback = %d: %s", status, body)
+	}
+	if got := orderStatusOf(t, env, p.number); got != "awaiting_payment" {
+		t.Fatalf("order is %q after a partial payment, want awaiting_payment", got)
+	}
+
+	client := signIn(t, env)
+	_, list := get(t, client, env.server.URL+"/admin/orders?number="+url.QueryEscape(p.number))
+	if !strings.Contains(list, "part paid") {
+		t.Errorf("the list does not flag the short-paid order: %s", list)
+	}
+
+	id := adminOrderID(t, env, client, p.number)
+	_, card := get(t, client, env.server.URL+"/admin/orders/"+id)
+	if !strings.Contains(card, "short-paid") {
+		t.Errorf("the card does not explain the short payment: %s", card)
+	}
+}
+
+// The flag belongs only to orders that earned it: a full payment must not carry
+// a warning an operator would then have to dismiss on every order.
+func TestAFullyPaidOrderCarriesNoPartialFlag(t *testing.T) {
+	env := startShopEnv(t)
+	p := paidOrder(t, env)
+	client := signIn(t, env)
+
+	_, list := get(t, client, env.server.URL+"/admin/orders?number="+url.QueryEscape(p.number))
+	if strings.Contains(list, "part paid") {
+		t.Error("the list flags a fully paid order as short-paid")
+	}
+	id := adminOrderID(t, env, client, p.number)
+	_, card := get(t, client, env.server.URL+"/admin/orders/"+id)
+	if strings.Contains(card, "short-paid") {
+		t.Error("the card warns about a short payment that never happened")
+	}
+}

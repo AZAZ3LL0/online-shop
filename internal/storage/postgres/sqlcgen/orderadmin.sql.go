@@ -78,6 +78,10 @@ const listAdminOrders = `-- name: ListAdminOrders :many
 SELECT o.id, o.number, o.status, o.total_cents, o.currency,
        o.customer_name, o.customer_contact, o.created_at, o.paid_at,
        (SELECT coalesce(sum(i.qty), 0) FROM order_items i WHERE i.order_id = o.id)::int AS units,
+       -- A short payment leaves the order awaiting_payment, so the status alone
+       -- never shows it; the panel flags the row instead (tech.md §5.4).
+       EXISTS (SELECT 1 FROM payments p
+               WHERE p.order_id = o.id AND p.status = 'partially_paid') AS partially_paid,
        count(*) OVER ()::bigint AS total_rows
 FROM orders o
 WHERE ($1::text IS NULL OR o.status = $1::text)
@@ -114,6 +118,7 @@ type ListAdminOrdersRow struct {
 	CreatedAt       pgtype.Timestamptz
 	PaidAt          pgtype.Timestamptz
 	Units           int32
+	PartiallyPaid   bool
 	TotalRows       int64
 }
 
@@ -150,6 +155,7 @@ func (q *Queries) ListAdminOrders(ctx context.Context, arg ListAdminOrdersParams
 			&i.CreatedAt,
 			&i.PaidAt,
 			&i.Units,
+			&i.PartiallyPaid,
 			&i.TotalRows,
 		); err != nil {
 			return nil, err

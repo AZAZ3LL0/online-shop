@@ -62,8 +62,10 @@ type Summary struct {
 	CustomerName    string
 	CustomerContact string
 	Units           int
-	CreatedAt       time.Time
-	PaidAt          *time.Time
+	// PartiallyPaid marks an order the provider was short-paid for.
+	PartiallyPaid bool
+	CreatedAt     time.Time
+	PaidAt        *time.Time
 }
 
 // List is one page of the admin order list.

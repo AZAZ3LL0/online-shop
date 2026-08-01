@@ -114,6 +114,9 @@ type AdminOrderView struct {
 	Error     string
 }
 
+// PartiallyPaid reports whether the newest provider event left the order short.
+func (v AdminOrderView) PartiallyPaid() bool { return payment.IsPartial(v.Payments) }
+
 // StatusFormAction is where a manual transition is posted.
 func (v AdminOrderView) StatusFormAction() string {
 	return "/admin/orders/" + v.Detail.Order.ID.String() + "/status"

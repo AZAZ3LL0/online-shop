@@ -52,6 +52,7 @@ func (r *OrderRepo) ListForAdmin(ctx context.Context, f order.Filter) (order.Lis
 			CustomerName:    row.CustomerName,
 			CustomerContact: row.CustomerContact,
 			Units:           int(row.Units),
+			PartiallyPaid:   row.PartiallyPaid,
 			CreatedAt:       row.CreatedAt.Time,
 			PaidAt:          timePtr(row.PaidAt),
 		})
