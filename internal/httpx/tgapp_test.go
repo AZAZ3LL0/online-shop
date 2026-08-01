@@ -98,6 +98,66 @@ func TestMiniAppLaunchOpensAShortSession(t *testing.T) {
 	}
 }
 
+// TestMiniAppServesTheSamePagesInItsOwnLayout is S7.2: one set of handlers,
+// two layouts. The Mini App carries no sign-in form and paints itself with the
+// colours Telegram sent (tech.md §5.3, §8).
+func TestMiniAppServesTheSamePagesInItsOwnLayout(t *testing.T) {
+	env := startShopEnv(t)
+	launchAdmin(t, env, allowedTelegramID)
+	client := newClient(t)
+
+	status, _ := launch(t, client, env, url.Values{
+		"init_data": {initData(t, allowedTelegramID, time.Now().UTC())},
+		"theme":     {`{"bg_color":"#17212b","text_color":"#ffffff","button_color":"#5288c1"}`},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("launch = %d, want 200", status)
+	}
+
+	for _, page := range []struct {
+		path    string
+		markers []string
+	}{
+		{"/tgapp/", []string{"Revenue", "Orders", `id="revenue-chart"`, "data-price-marker="}},
+		{"/tgapp/analytics", []string{"Funnel", `id="funnel-chart"`, "Traffic sources"}},
+	} {
+		body := mustGet(t, client, env.server.URL+page.path)
+		for _, marker := range page.markers {
+			if !strings.Contains(body, marker) {
+				t.Errorf("%s does not carry %q, the mini app must show the same report", page.path, marker)
+			}
+		}
+		if !strings.Contains(body, `class="admin-mini`) {
+			t.Errorf("%s is not rendered in the AdminMini layout", page.path)
+		}
+		if strings.Contains(body, `action="/admin/login"`) || strings.Contains(body, `name="password"`) {
+			t.Errorf("%s carries a sign-in form, the mini app has none", page.path)
+		}
+		// The colours come from themeParams, sanitised before they were stored.
+		if !strings.Contains(body, "--tg-bg_color:#17212b") {
+			t.Errorf("%s is not themed from themeParams", page.path)
+		}
+		// S7.3: the tables have to stack instead of scrolling sideways, which
+		// is what the per-cell labels are for.
+		if !strings.Contains(body, `data-label="Source"`) {
+			t.Errorf("%s has unlabelled table cells, they cannot stack on a narrow screen", page.path)
+		}
+		if !strings.Contains(body, `data-metrics-compact="true"`) {
+			t.Errorf("%s does not ask for the compact charts", page.path)
+		}
+	}
+
+	// The browser panel is untouched by all of this.
+	browser := signInAdmin(t, env)
+	body := mustGet(t, browser, env.server.URL+"/admin")
+	if strings.Contains(body, "admin-mini") {
+		t.Error("the browser panel picked up the mini app layout")
+	}
+	if !strings.Contains(body, `data-metrics-compact="false"`) {
+		t.Error("the browser panel asks for the compact charts")
+	}
+}
+
 // TestMiniAppRejectsBadLaunches is the S7.1 error path. Every refusal has to
 // answer 403 with the same wording: tech.md §5.5 requires no detail.
 func TestMiniAppRejectsBadLaunches(t *testing.T) {

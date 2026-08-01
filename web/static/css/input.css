@@ -17,3 +17,123 @@
     display: none !important;
   }
 }
+
+/*
+ * Telegram Mini App panel.
+ *
+ * Deliberately outside @layer, so Tailwind never tree-shakes these rules away:
+ * they are written by hand rather than generated from class names in markup.
+ *
+ * The --tg-* custom properties are the sanitised themeParams the server wrote
+ * into the layout; every one of them has a fallback, so the panel is readable
+ * when Telegram sends no theme at all.
+ */
+.admin-mini {
+  background: var(--tg-bg_color, #ffffff);
+  color: var(--tg-text_color, #171717);
+}
+
+.admin-mini-bar {
+  background: var(--tg-header_bg_color, var(--tg-secondary_bg_color, #ffffff));
+}
+
+.admin-mini a {
+  color: var(--tg-link_color, inherit);
+}
+
+.admin-mini .text-neutral-900,
+.admin-mini h1,
+.admin-mini h2 {
+  color: var(--tg-text_color, #171717);
+}
+
+.admin-mini-hint,
+.admin-mini .text-neutral-400,
+.admin-mini .text-neutral-500,
+.admin-mini .text-neutral-600 {
+  color: var(--tg-hint_color, #737373);
+}
+
+.admin-mini .bg-white,
+.admin-mini .bg-neutral-50 {
+  background: var(--tg-section_bg_color, var(--tg-secondary_bg_color, #ffffff));
+}
+
+.admin-mini .border,
+.admin-mini .border-b,
+.admin-mini .border-neutral-100,
+.admin-mini .border-neutral-200,
+.admin-mini .border-neutral-300,
+.admin-mini tr {
+  border-color: var(--tg-hint_color, #e5e5e5);
+}
+
+.admin-mini input,
+.admin-mini select,
+.admin-mini textarea {
+  background: var(--tg-bg_color, #ffffff);
+  color: var(--tg-text_color, #171717);
+  border-color: var(--tg-hint_color, #d4d4d4);
+}
+
+.admin-mini .bg-neutral-900 {
+  background: var(--tg-button_color, #171717);
+  border-color: var(--tg-button_color, #171717);
+  color: var(--tg-button_text_color, #ffffff);
+}
+
+/*
+ * Narrow-screen adaptation, S7.3. A Mini App is 360-420px wide, where a scroll
+ * container is a trap: the operator cannot see there is a column to the right.
+ * Every table is turned into stacked label/value rows instead, labelled from
+ * the data-label each cell carries.
+ */
+.admin-mini .overflow-x-auto {
+  overflow-x: visible;
+}
+
+.admin-mini table,
+.admin-mini tbody,
+.admin-mini tr,
+.admin-mini td {
+  display: block;
+  width: 100%;
+}
+
+.admin-mini thead {
+  display: none;
+}
+
+.admin-mini tr {
+  padding: 0.5rem 0;
+}
+
+.admin-mini td {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: right;
+}
+
+.admin-mini td[data-label]::before {
+  content: attr(data-label);
+  flex: 0 0 auto;
+  text-align: left;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tg-hint_color, #737373);
+}
+
+/* The funnel bar is the row's own full-width visual, not a value. */
+.admin-mini td[data-label="Stage"] {
+  display: block;
+  text-align: left;
+}
+
+.admin-mini td[data-label="Stage"]::before {
+  content: none;
+}

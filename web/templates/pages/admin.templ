@@ -126,37 +126,44 @@ templ sourcesTable(sources []analytics.Source) {
 	}
 }
 
+// The data-label on every cell is what lets the same markup stack into
+// label/value rows on a Mini App screen instead of scrolling sideways (S7.3).
 templ funnelRow(step FunnelStep) {
-	<td class="px-3 py-2">
+	<td class="px-3 py-2" data-label="Stage">
 		<span class="block">{ step.Label }</span>
 		<span class="mt-1 block h-1 bg-neutral-900" style={ "width:" + step.Width }></span>
 	</td>
-	<td class="px-3 py-2 tabular-nums">{ strconv.FormatInt(step.Count, 10) }</td>
-	<td class="px-3 py-2 tabular-nums">{ step.RateFromPrevious }</td>
-	<td class="px-3 py-2 tabular-nums">{ step.RateFromTop }</td>
+	<td class="px-3 py-2 tabular-nums" data-label="Visitors">{ strconv.FormatInt(step.Count, 10) }</td>
+	<td class="px-3 py-2 tabular-nums" data-label="From previous">{ step.RateFromPrevious }</td>
+	<td class="px-3 py-2 tabular-nums" data-label="From visits">{ step.RateFromTop }</td>
 }
 
 templ sourceRow(s analytics.Source) {
-	<td class="px-3 py-2">{ s.Label() }</td>
-	<td class="px-3 py-2 text-neutral-500">
+	<td class="px-3 py-2" data-label="Source">{ s.Label() }</td>
+	<td class="px-3 py-2 text-neutral-500" data-label="Referrer">
 		if s.Referrer != "" {
 			{ s.Referrer }
 		} else {
 			-
 		}
 	</td>
-	<td class="px-3 py-2 tabular-nums">{ strconv.FormatInt(s.Visitors, 10) }</td>
-	<td class="px-3 py-2 tabular-nums">{ strconv.FormatInt(s.Orders, 10) }</td>
-	<td class="px-3 py-2 tabular-nums">
+	<td class="px-3 py-2 tabular-nums" data-label="Visitors">{ strconv.FormatInt(s.Visitors, 10) }</td>
+	<td class="px-3 py-2 tabular-nums" data-label="Orders">{ strconv.FormatInt(s.Orders, 10) }</td>
+	<td class="px-3 py-2 tabular-nums" data-label="Revenue">
 		@components.Money(s.Revenue)
 	</td>
-	<td class="px-3 py-2 tabular-nums">{ percent(s.Conversion()) }</td>
+	<td class="px-3 py-2 tabular-nums" data-label="Conversion">{ percent(s.Conversion()) }</td>
 }
 
 // metricsScripts loads the vendored Chart.js and the chart bootstrap. Both are
 // local files: the CSP forbids inline scripts and external hosts (tech.md §9.7).
 templ metricsScripts(v MetricsView) {
-	<div id="metrics-root" data-metrics-url={ v.APIURL() } hidden></div>
+	<div
+		id="metrics-root"
+		data-metrics-url={ v.APIURL() }
+		data-metrics-compact={ v.CompactAttr() }
+		hidden
+	></div>
 	<script defer src="/static/vendor/chart.umd.min.js"></script>
 	<script defer src="/static/js/metrics.js"></script>
 }

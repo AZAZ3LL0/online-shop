@@ -14,6 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const ink = "#171717";
   const muted = "#a3a3a3";
 
+  // A Mini App is about 360px wide. The charts keep every series, they only
+  // stop drawing the parts that would force the canvas wider than the screen:
+  // the second axis title, the dense tick run and the wide legend (S7.3).
+  const compact = root.dataset.metricsCompact === "true";
+  const compactTicks = { maxRotation: 0, autoSkip: true, maxTicksLimit: 4, font: { size: 10 } };
+
   fetch(url, { headers: { "X-Requested-With": "fetch" } })
     .then((response) => (response.ok ? response.json() : null))
     .then((data) => {
@@ -100,11 +106,24 @@ document.addEventListener("DOMContentLoaded", () => {
         maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: "Revenue" } },
-          orders: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false } },
+          x: compact ? { ticks: compactTicks } : {},
+          y: {
+            beginAtZero: true,
+            title: { display: !compact, text: "Revenue" },
+            ticks: compact ? { maxTicksLimit: 4, font: { size: 10 } } : {},
+          },
+          orders: {
+            beginAtZero: true,
+            position: "right",
+            grid: { drawOnChartArea: false },
+            ticks: compact ? { maxTicksLimit: 4, font: { size: 10 } } : {},
+          },
         },
         plugins: {
-          legend: { labels: { usePointStyle: true } },
+          legend: {
+            position: compact ? "bottom" : "top",
+            labels: { usePointStyle: true, boxWidth: compact ? 8 : 40, font: { size: compact ? 10 : 12 } },
+          },
           tooltip: {
             callbacks: {
               afterBody: (items) => markers.get(items[0].label) || [],
@@ -147,7 +166,10 @@ document.addEventListener("DOMContentLoaded", () => {
             },
           },
         },
-        scales: { x: { beginAtZero: true } },
+        scales: {
+          x: { beginAtZero: true, ticks: compact ? compactTicks : {} },
+          y: { ticks: compact ? { font: { size: 10 } } : {} },
+        },
       },
     });
   }

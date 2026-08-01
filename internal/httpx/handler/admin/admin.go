@@ -144,7 +144,7 @@ func (h *Handler) metricsView(w http.ResponseWriter, r *http.Request) (pages.Met
 		h.fail(w, r, err)
 		return pages.MetricsView{}, false
 	}
-	return pages.MetricsView{Metrics: report, Path: r.URL.Path}, true
+	return pages.MetricsView{Metrics: report, Path: r.URL.Path, Compact: IsMini(r)}, true
 }
 
 // renderAdmin writes one admin page into the layout the request asks for. This
