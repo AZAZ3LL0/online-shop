@@ -1,11 +1,20 @@
 name: qzq-shop
 
+# Every long-lived service caps its container log. Without this the JSON driver
+# grows without bound and fills the VPS disk before anything else fails.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: app
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      # No default: an unset password in production would silently ship "app".
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: shop
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -16,6 +25,7 @@ services:
       retries: 10
     # No published port: the database is reachable only from the compose network.
     restart: unless-stopped
+    logging: *logging
 
   app:
     build:
@@ -24,7 +34,7 @@ services:
     env_file:
       - ../.env
     environment:
-      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-app}@postgres:5432/shop?sslmode=disable
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/shop?sslmode=disable
       # Behind Caddy the browser talks to SITE_ADDRESS, not to the port in .env.
       # The CSRF origin check compares against this, so the two must agree.
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
@@ -37,6 +47,7 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+    logging: *logging
 
   caddy:
     image: caddy:2-alpine
@@ -47,11 +58,13 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
+      - caddylogs:/var/log/caddy
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     depends_on:
       - app
     restart: unless-stopped
+    logging: *logging
 
   # Development profile: rebuild CSS and templates on change.
   tailwind:
@@ -78,4 +91,5 @@ volumes:
   pgdata:
   caddydata:
   caddyconfig:
+  caddylogs:
   gocache:

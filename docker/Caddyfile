@@ -1,3 +1,16 @@
+{
+	# Caddy's own diagnostics. Rolling happens here rather than through
+	# logrotate: the container has no cron and the file is owned by Caddy.
+	log {
+		output file /var/log/caddy/caddy.log {
+			roll_size 10MiB
+			roll_keep 5
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
 # SITE_ADDRESS is ":80" locally and the real domain in production, where Caddy
 # obtains and renews the certificate on its own.
 {$SITE_ADDRESS} {
@@ -6,12 +19,27 @@
 	@static path /static/*
 	header @static Cache-Control "public, max-age=31536000, immutable"
 
+	# The liveness probe answers for the monitor, never from a cache.
+	@healthz path /healthz
+	header @healthz Cache-Control "no-store"
+
 	reverse_proxy app:8080 {
 		header_up X-Forwarded-Proto {scheme}
+
+		# /healthz reaches Postgres (tech.md §5.2), so an app that cannot answer
+		# it is taken out of rotation instead of serving half-broken pages.
+		health_uri /healthz
+		health_interval 10s
+		health_timeout 2s
+		health_status 200
 	}
 
 	log {
-		output stdout
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
 		format json
 	}
 }
