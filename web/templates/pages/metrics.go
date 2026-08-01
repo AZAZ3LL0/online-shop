@@ -24,6 +24,16 @@ type MetricsView struct {
 	// Path is the page the range picker reloads, so one picker serves both the
 	// dashboard and the analytics page.
 	Path string
+	// Compact marks a Mini App screen: the same report, drawn for ~360px.
+	Compact bool
+}
+
+// CompactAttr is how the chart bootstrap learns it is drawing for a Mini App.
+func (v MetricsView) CompactAttr() string {
+	if v.Compact {
+		return "true"
+	}
+	return "false"
 }
 
 // StatCardData is one card of the top row.

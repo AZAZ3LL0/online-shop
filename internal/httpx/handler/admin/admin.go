@@ -27,9 +27,11 @@ import (
 // sessionTTL is the browser admin session lifetime, tech.md §8.5.
 const sessionTTL = 12 * time.Hour
 
-// Repository is the narrow admin storage the handlers need.
+// Repository is the narrow admin storage the handlers need. ByTelegramID is the
+// Mini App allowlist; the browser panel never calls it.
 type Repository interface {
 	ByLogin(ctx context.Context, login string) (postgres.AdminUser, error)
+	ByTelegramID(ctx context.Context, telegramID int64) (postgres.AdminUser, error)
 	CreateSession(ctx context.Context, adminID uuid.UUID, ip, userAgent string, expiresAt time.Time) (uuid.UUID, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 }
@@ -142,16 +144,23 @@ func (h *Handler) metricsView(w http.ResponseWriter, r *http.Request) (pages.Met
 		h.fail(w, r, err)
 		return pages.MetricsView{}, false
 	}
-	return pages.MetricsView{Metrics: report, Path: r.URL.Path}, true
+	return pages.MetricsView{Metrics: report, Path: r.URL.Path, Compact: IsMini(r)}, true
 }
 
-// renderAdmin writes one admin page into the browser layout.
+// renderAdmin writes one admin page into the layout the request asks for. This
+// is the whole difference between the browser panel and the Mini App: the
+// handlers, the queries and the view models above are the same (tech.md §5.3).
 func (h *Handler) renderAdmin(w http.ResponseWriter, r *http.Request, title string, body templ.Component) {
 	admin, _ := reqctx.AdminFrom(r.Context())
 	page := templates.Page{
 		Title:     title,
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		AdminUser: admin.Login,
+	}
+	if IsMini(r) {
+		page.Theme = theme(h.cookies, r)
+		h.render(w, r, templates.AdminMini(page).Render, body)
+		return
 	}
 	h.render(w, r, templates.AdminWeb(page).Render, body)
 }

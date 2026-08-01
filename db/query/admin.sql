@@ -9,6 +9,14 @@ SELECT id, login, password_hash, telegram_id
 FROM admin_users
 WHERE login = $1;
 
+-- name: GetAdminByTelegramID :one
+SELECT id, login, password_hash, telegram_id
+FROM admin_users
+WHERE telegram_id = $1;
+
+-- name: SetAdminTelegramID :exec
+UPDATE admin_users SET telegram_id = $2 WHERE login = $1;
+
 -- name: SetAdminLastLogin :exec
 UPDATE admin_users SET last_login_at = now() WHERE id = $1;
 

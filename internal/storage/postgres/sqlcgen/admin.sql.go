@@ -80,6 +80,31 @@ func (q *Queries) GetAdminByLogin(ctx context.Context, login string) (GetAdminBy
 	return i, err
 }
 
+const getAdminByTelegramID = `-- name: GetAdminByTelegramID :one
+SELECT id, login, password_hash, telegram_id
+FROM admin_users
+WHERE telegram_id = $1
+`
+
+type GetAdminByTelegramIDRow struct {
+	ID           uuid.UUID
+	Login        string
+	PasswordHash string
+	TelegramID   *int64
+}
+
+func (q *Queries) GetAdminByTelegramID(ctx context.Context, telegramID *int64) (GetAdminByTelegramIDRow, error) {
+	row := q.db.QueryRow(ctx, getAdminByTelegramID, telegramID)
+	var i GetAdminByTelegramIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Login,
+		&i.PasswordHash,
+		&i.TelegramID,
+	)
+	return i, err
+}
+
 const getAdminSession = `-- name: GetAdminSession :one
 SELECT s.id, s.admin_id, s.expires_at, u.login
 FROM admin_sessions s
@@ -112,6 +137,20 @@ UPDATE admin_users SET last_login_at = now() WHERE id = $1
 
 func (q *Queries) SetAdminLastLogin(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setAdminLastLogin, id)
+	return err
+}
+
+const setAdminTelegramID = `-- name: SetAdminTelegramID :exec
+UPDATE admin_users SET telegram_id = $2 WHERE login = $1
+`
+
+type SetAdminTelegramIDParams struct {
+	Login      string
+	TelegramID *int64
+}
+
+func (q *Queries) SetAdminTelegramID(ctx context.Context, arg SetAdminTelegramIDParams) error {
+	_, err := q.db.Exec(ctx, setAdminTelegramID, arg.Login, arg.TelegramID)
 	return err
 }
 
