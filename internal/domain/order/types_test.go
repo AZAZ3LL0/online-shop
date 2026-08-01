@@ -21,8 +21,8 @@ var all = []order.Status{
 func TestCanTransitionMatchesDiagram(t *testing.T) {
 	allowed := map[order.Status][]order.Status{
 		order.StatusCreated:         {order.StatusAwaitingPayment},
-		order.StatusAwaitingPayment: {order.StatusPaid, order.StatusExpired},
-		order.StatusPaid:            {order.StatusShipped, order.StatusRefunded},
+		order.StatusAwaitingPayment: {order.StatusPaid, order.StatusExpired, order.StatusCancelled},
+		order.StatusPaid:            {order.StatusShipped, order.StatusRefunded, order.StatusCancelled},
 		order.StatusShipped:         {order.StatusDelivered},
 		order.StatusExpired:         {order.StatusCancelled},
 	}

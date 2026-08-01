@@ -116,6 +116,21 @@ func (r *OrderRepo) Transition(ctx context.Context, id uuid.UUID, from, to order
 		if order.Status(locked.Status) != from {
 			return fmt.Errorf("order %s: %w", id, order.ErrConflict)
 		}
+		// Cancelling is the only manual move that touches stock, and what it
+		// owes depends on where the units sit: still reserved before payment,
+		// already out of stock after it (tech.md §4).
+		if to == order.StatusCancelled {
+			switch from {
+			case order.StatusAwaitingPayment:
+				if err := releaseItems(ctx, q, id); err != nil {
+					return err
+				}
+			case order.StatusPaid:
+				if err := restockItems(ctx, q, id); err != nil {
+					return err
+				}
+			}
+		}
 		n, err := q.SetOrderStatus(ctx, sqlcgen.SetOrderStatusParams{
 			ID:       id,
 			Status:   string(to),

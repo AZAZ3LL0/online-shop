@@ -61,6 +61,13 @@ UPDATE product_variants
 SET reserved = reserved - LEAST(reserved, sqlc.arg(qty)::int)
 WHERE id = sqlc.arg(variant_id);
 
+-- Cancelling a paid order puts the units back on the shelf: paid already took
+-- them out of stock, and an order cancelled before it ships was never sent.
+-- name: RestockVariant :execrows
+UPDATE product_variants
+SET stock = stock + sqlc.arg(qty)::int
+WHERE id = sqlc.arg(variant_id);
+
 -- name: CommitVariantStock :execrows
 UPDATE product_variants
 SET stock = stock - LEAST(stock, sqlc.arg(qty)::int),

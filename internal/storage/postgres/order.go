@@ -319,6 +319,24 @@ func releaseItems(ctx context.Context, q *sqlcgen.Queries, orderID uuid.UUID) er
 	return nil
 }
 
+// restockItems puts the units of a paid order back on the shelf. Paid already
+// spent the reservation, so there is nothing left to release.
+func restockItems(ctx context.Context, q *sqlcgen.Queries, orderID uuid.UUID) error {
+	items, err := q.ListOrderItemsByOrder(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("list order items: %w", err)
+	}
+	for _, item := range items {
+		if _, err := q.RestockVariant(ctx, sqlcgen.RestockVariantParams{
+			VariantID: item.VariantID,
+			Qty:       item.Qty,
+		}); err != nil {
+			return fmt.Errorf("restock variant: %w", err)
+		}
+	}
+	return nil
+}
+
 // reservationOrder sorts the lines by variant id so concurrent checkouts always
 // take the row locks in the same sequence.
 func reservationOrder(items []order.Item) []order.Item {

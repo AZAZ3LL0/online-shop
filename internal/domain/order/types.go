@@ -22,12 +22,15 @@ const (
 	StatusRefunded        Status = "refunded"
 )
 
-// transitions is the literal transcription of the diagram in tech.md §5.1.
-// Nothing is added here without a CONTRACT GAP and a core version bump.
+// transitions transcribes the diagram in tech.md §5.1, with the one addition
+// its own prose asks for: §5.1 calls cancelled the status an administrator sets
+// by hand and §8.4 lists the move, but the diagram drew it only under expired,
+// which left a live order impossible to cancel. Nothing else is added here
+// without a CONTRACT GAP and a core version bump.
 var transitions = map[Status][]Status{
 	StatusCreated:         {StatusAwaitingPayment},
-	StatusAwaitingPayment: {StatusPaid, StatusExpired},
-	StatusPaid:            {StatusShipped, StatusRefunded},
+	StatusAwaitingPayment: {StatusPaid, StatusExpired, StatusCancelled},
+	StatusPaid:            {StatusShipped, StatusRefunded, StatusCancelled},
 	StatusShipped:         {StatusDelivered},
 	StatusDelivered:       {},
 	StatusExpired:         {StatusCancelled},

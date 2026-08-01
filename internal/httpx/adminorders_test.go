@@ -26,6 +26,14 @@ func paidOrder(t *testing.T, env *shopEnv) placed {
 	return p
 }
 
+// firstVariantID reads the size the checkout helper picks, so a test can take a
+// stock baseline before any order touches it.
+func firstVariantID(t *testing.T, env *shopEnv) string {
+	t.Helper()
+	_, home := get(t, env.client, env.server.URL+"/")
+	return capture(t, reVariant, home, "variant id")
+}
+
 // adminOrderID finds one order in the list by its number, the way an operator
 // does: through the filter bar.
 func adminOrderID(t *testing.T, env *shopEnv, client *http.Client, number string) string {
@@ -105,15 +113,12 @@ func TestAdminOrderCardShowsTheOrderBehindIt(t *testing.T) {
 		"buyer@example.com", // the contact
 		"$70.00",            // two units of the snapshot price
 		"finished",          // the provider log
-		`value="shipped"`,   // the manual transition on offer
+		`value="shipped"`,   // the manual transitions on offer
+		`value="cancelled"`,
 	} {
 		if !strings.Contains(card, want) {
 			t.Errorf("the card does not show %q", want)
 		}
-	}
-	// Cancelling is not a move a human owns from paid, tech.md §5.1.
-	if strings.Contains(card, `value="cancelled"`) {
-		t.Error("the card offers cancelling a paid order")
 	}
 	if !strings.Contains(card, "4242") && !strings.Contains(card, "@buyer") {
 		t.Errorf("the card does not show the chat following the order: %s", card)
@@ -161,7 +166,7 @@ func TestAdminRejectsAForbiddenTransition(t *testing.T) {
 	id := adminOrderID(t, env, client, p.number)
 	before := len(outboxTexts(t, env, p.number))
 
-	for _, target := range []string{"awaiting_payment", "cancelled", "expired", "refunded", "nonsense"} {
+	for _, target := range []string{"awaiting_payment", "expired", "refunded", "nonsense"} {
 		status, body := postStatus(t, env, client, id, target)
 		if status != http.StatusConflict {
 			t.Errorf("moving a paid order to %q = %d, want 409", target, status)
@@ -187,4 +192,96 @@ func countTexts(texts []string, needle string) int {
 		}
 	}
 	return n
+}
+
+// Acceptance for the cancel move tech.md §5.1 and §8.4 ask for: the owner can
+// end a live order by hand, and the units it was holding come back.
+func TestAdminCancelsAnUnpaidOrderAndFreesTheReservation(t *testing.T) {
+	env := startShopEnv(t)
+
+	before, _ := variantStock(t, env, firstVariantID(t, env))
+	p := checkout(t, env, "2")
+	track(t, env, 8101, p.number)
+	if got := orderStatusOf(t, env, p.number); got != "awaiting_payment" {
+		t.Fatalf("order is %q after checkout, want awaiting_payment", got)
+	}
+	if _, reserved := variantStock(t, env, p.variantID); reserved != 2 {
+		t.Fatalf("reserved = %d after checkout, want 2", reserved)
+	}
+
+	client := signIn(t, env)
+	id := adminOrderID(t, env, client, p.number)
+	if status, body := postStatus(t, env, client, id, "cancelled"); status != http.StatusOK {
+		t.Fatalf("cancelling an unpaid order = %d: %s", status, body)
+	}
+
+	if got := orderStatusOf(t, env, p.number); got != "cancelled" {
+		t.Errorf("order is %q after the cancel, want cancelled", got)
+	}
+	stock, reserved := variantStock(t, env, p.variantID)
+	if reserved != 0 {
+		t.Errorf("reserved = %d after the cancel, want 0", reserved)
+	}
+	if stock != before {
+		t.Errorf("stock = %d after the cancel, want the untouched %d", stock, before)
+	}
+	if count := countTexts(outboxTexts(t, env, p.number), "cancelled"); count != 1 {
+		t.Errorf("%d messages announce the cancel, want exactly one", count)
+	}
+}
+
+// A paid order has already left the shelf, so cancelling it before it ships has
+// to put the units back rather than release a reservation that is long spent.
+func TestAdminCancelsAPaidOrderAndPutsTheStockBack(t *testing.T) {
+	env := startShopEnv(t)
+
+	before, _ := variantStock(t, env, firstVariantID(t, env))
+	p := paidOrder(t, env)
+	paidStock, paidReserved := variantStock(t, env, p.variantID)
+	if paidStock != before-2 || paidReserved != 0 {
+		t.Fatalf("stock/reserved = %d/%d once paid, want %d/0", paidStock, paidReserved, before-2)
+	}
+
+	client := signIn(t, env)
+	id := adminOrderID(t, env, client, p.number)
+	if status, body := postStatus(t, env, client, id, "cancelled"); status != http.StatusOK {
+		t.Fatalf("cancelling a paid order = %d: %s", status, body)
+	}
+
+	if got := orderStatusOf(t, env, p.number); got != "cancelled" {
+		t.Errorf("order is %q after the cancel, want cancelled", got)
+	}
+	stock, reserved := variantStock(t, env, p.variantID)
+	if stock != before {
+		t.Errorf("stock = %d after the cancel, want the original %d", stock, before)
+	}
+	if reserved != 0 {
+		t.Errorf("reserved = %d after the cancel, want 0", reserved)
+	}
+	if count := countTexts(outboxTexts(t, env, p.number), "cancelled"); count != 1 {
+		t.Errorf("%d messages announce the cancel, want exactly one", count)
+	}
+}
+
+// A cancelled order is terminal: nothing may move it on, and a second cancel
+// must not restock the same units twice.
+func TestACancelledOrderStaysCancelled(t *testing.T) {
+	env := startShopEnv(t)
+
+	before, _ := variantStock(t, env, firstVariantID(t, env))
+	p := paidOrder(t, env)
+	client := signIn(t, env)
+	id := adminOrderID(t, env, client, p.number)
+	if status, _ := postStatus(t, env, client, id, "cancelled"); status != http.StatusOK {
+		t.Fatalf("the first cancel did not go through")
+	}
+
+	for _, target := range []string{"cancelled", "shipped", "paid"} {
+		if status, _ := postStatus(t, env, client, id, target); status != http.StatusConflict {
+			t.Errorf("moving a cancelled order to %q = %d, want 409", target, status)
+		}
+	}
+	if stock, _ := variantStock(t, env, p.variantID); stock != before {
+		t.Errorf("stock = %d after the refused moves, want %d", stock, before)
+	}
 }
