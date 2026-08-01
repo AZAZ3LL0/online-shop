@@ -21,7 +21,7 @@ the contracts stay exactly as `tech.md` freezes them.
 
 ```bash
 sudo install -d -o "$USER" -g "$USER" /srv/qzq-shop
-git clone git@github.com:AZAZ3LL0/qzq-kiim.git /srv/qzq-shop
+git clone git@github.com:AZAZ3LL0/online-shop.git /srv/qzq-shop
 cd /srv/qzq-shop
 cp .env.example .env
 chmod 600 .env
