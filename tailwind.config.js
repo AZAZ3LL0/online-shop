@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./web/templates/**/*.templ", "./internal/**/*.go"],
+  // The Go files under web/templates matter too: toneClasses() and
+  // buttonClasses() in components/types.go are where the badge, alert and
+  // button colours are actually written down.
+  content: ["./web/templates/**/*.templ", "./web/templates/**/*.go", "./internal/**/*.go"],
   theme: {
     extend: {
       colors: {
