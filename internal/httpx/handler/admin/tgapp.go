@@ -100,7 +100,7 @@ func (a *TelegramAuth) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionID, err := a.admins.CreateSession(
-		r.Context(), admin.ID, clientIP(r), r.UserAgent(), time.Now().Add(miniSessionTTL))
+		r.Context(), admin.ID, middleware.ClientIP(r), r.UserAgent(), time.Now().Add(miniSessionTTL))
 	if err != nil {
 		a.log.Error("create mini app session failed",
 			slog.String("request_id", reqctx.RequestID(r.Context())),
