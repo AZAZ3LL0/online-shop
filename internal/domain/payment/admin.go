@@ -13,3 +13,11 @@ type LogEntry struct {
 	ActuallyPaid      string
 	ReceivedAt        time.Time
 }
+
+// IsPartial reports whether the newest event left the order short-paid. A
+// partial payment never becomes paid on its own (tech.md §5.4), so the panel has
+// to say so rather than leave an operator reading raw provider states.
+// The log arrives newest first.
+func IsPartial(log []LogEntry) bool {
+	return len(log) > 0 && log[0].ProviderStatus == ProviderPartiallyPaid
+}

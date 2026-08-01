@@ -44,6 +44,11 @@ templ adminOrderRow(o order.Summary) {
 	<td class="px-3 py-2 text-neutral-500">{ adminTime(o.CreatedAt) }</td>
 	<td class="px-3 py-2">
 		@components.StatusPill(o.Status)
+		if o.PartiallyPaid {
+			<span class="ml-1 inline-block">
+				@components.Badge("part paid", components.ToneWarning)
+			</span>
+		}
 	</td>
 	<td class="px-3 py-2">
 		<span>{ o.CustomerName }</span>
