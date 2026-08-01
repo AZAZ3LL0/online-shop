@@ -2,7 +2,6 @@ package httpx_test
 
 import (
 	"context"
-	"database/sql"
 	"io"
 	"log/slog"
 	"net"
@@ -14,12 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
@@ -33,7 +26,6 @@ import (
 	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
 	"github.com/qzq-kiim/shop/internal/storage/postgres"
 	"github.com/qzq-kiim/shop/internal/telegram"
-	"github.com/qzq-kiim/shop/migrations"
 )
 
 // orderTTL is the reservation lifetime the tests run with.
@@ -76,43 +68,18 @@ func startShop(t *testing.T) (*httptest.Server, *http.Client) {
 	return env.server, env.client
 }
 
-// startShopEnv brings up a real Postgres, applies the migrations, seeds the
-// demo data and serves the router. Nothing here is mocked: this is the
-// reference vertical the later slices copy.
+// startShopEnv gives the test its own database on the package's Postgres,
+// already migrated and seeded, and serves the router against it. Nothing here
+// is mocked: this is the reference vertical the later slices copy.
 func startShopEnv(t *testing.T) *shopEnv {
 	t.Helper()
 
 	ctx := context.Background()
-	container, err := tcpostgres.Run(ctx, "postgres:16-alpine",
-		tcpostgres.WithDatabase("shop"),
-		tcpostgres.WithUsername("app"),
-		tcpostgres.WithPassword("app"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(90*time.Second),
-		),
-	)
-	if err != nil {
-		t.Skipf("postgres container unavailable: %v", err)
-	}
-	t.Cleanup(func() { _ = testcontainers.TerminateContainer(container) })
-
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("connection string: %v", err)
-	}
-	applyMigrations(t, dsn)
-
-	store, err := postgres.Open(ctx, dsn)
+	store, err := postgres.Open(ctx, newTestDatabase(t))
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
 	t.Cleanup(store.Close)
-
-	if err := postgres.NewSeeder(store).Run(ctx, time.Now().UTC()); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
 
 	// The listener is opened first so the CSRF origin check can be configured
 	// with the address the test client will actually use.
@@ -196,24 +163,6 @@ func startShopEnv(t *testing.T) *shopEnv {
 		notify: postgres.NewNotifyRepo(store),
 		fake:   fake,
 		bot:    bot,
-	}
-}
-
-func applyMigrations(t *testing.T, dsn string) {
-	t.Helper()
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	defer func() { _ = db.Close() }()
-
-	goose.SetBaseFS(migrations.FS)
-	goose.SetLogger(goose.NopLogger())
-	if err := goose.SetDialect("postgres"); err != nil {
-		t.Fatalf("goose dialect: %v", err)
-	}
-	if err := goose.Up(db, "."); err != nil {
-		t.Fatalf("goose up: %v", err)
 	}
 }
 
