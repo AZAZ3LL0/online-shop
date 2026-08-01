@@ -12,6 +12,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/money"
+	"github.com/qzq-kiim/shop/internal/telegram"
 	"github.com/qzq-kiim/shop/web/templates/components"
 )
 
@@ -59,10 +60,35 @@ type CheckoutView struct {
 // FieldError returns the message shown under one field, empty when it is fine.
 func (v CheckoutView) FieldError(name string) string { return v.Errors[name] }
 
+// TrackEntry is the "Track order in Telegram" block. Both pages that offer the
+// bot embed it, so the link and the QR are built in one place (tech.md §5.5).
+type TrackEntry struct {
+	BotUsername string
+	LinkCode    string
+}
+
+// Offered reports whether a bot entry point can be shown at all.
+func (t TrackEntry) Offered() bool { return t.URL() != "" }
+
+// URL is the bot deep link of this order, empty when no bot is configured.
+func (t TrackEntry) URL() string { return telegram.DeepLink(t.BotUsername, t.LinkCode) }
+
+// QR is the deep link as an inline PNG, for scanning from a desktop screen. A
+// code that cannot be drawn costs the button nothing, so the error is dropped
+// here rather than failing the whole page.
+func (t TrackEntry) QR() string {
+	uri, err := telegram.QRDataURI(t.URL())
+	if err != nil {
+		return ""
+	}
+	return uri
+}
+
 // OrderView is the public status page of one order.
 type OrderView struct {
 	Order order.Order
 	Now   time.Time
+	Track TrackEntry
 }
 
 // Expired reports whether the reservation deadline has passed.
@@ -100,6 +126,7 @@ type DevPayView struct {
 	OrderURL  string
 	CSRFToken string
 	Statuses  []string
+	Track     TrackEntry
 }
 
 // TelegramLaunchView is the Mini App entry page: where to post the launch

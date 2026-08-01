@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/qzq-kiim/shop/internal/domain/notify"
+	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/storage/postgres/sqlcgen"
 )
 
@@ -32,6 +34,27 @@ func (r *NotifyRepo) Enqueue(ctx context.Context, n notify.Notification, dedupKe
 	})
 	if err != nil {
 		return fmt.Errorf("enqueue notification: %w", err)
+	}
+	return nil
+}
+
+// enqueueOrderNotification queues one message per chat following the order, in
+// whatever transaction the caller is already in. It lives here rather than in a
+// service because the outbox row has to be written together with the status
+// change it announces: either both land or neither does (tech.md §5.4 rule 4).
+func enqueueOrderNotification(ctx context.Context, q *sqlcgen.Queries, orderID uuid.UUID, kind notify.Kind, status order.Status, text string) error {
+	payload, err := notify.NewPayload(text)
+	if err != nil {
+		return err
+	}
+	_, err = q.EnqueueOrderNotification(ctx, sqlcgen.EnqueueOrderNotificationParams{
+		OrderID:  pgtype.UUID{Bytes: orderID, Valid: true},
+		Kind:     string(kind),
+		Payload:  payload,
+		DedupKey: notify.DedupKey(orderID, kind, string(status)),
+	})
+	if err != nil {
+		return fmt.Errorf("enqueue order notification: %w", err)
 	}
 	return nil
 }

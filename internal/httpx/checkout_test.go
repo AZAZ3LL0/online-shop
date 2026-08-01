@@ -393,13 +393,10 @@ func TestConcurrentCheckoutsNeverOversell(t *testing.T) {
 		if err != nil {
 			t.Fatalf("cookie jar: %v", err)
 		}
-		buyer := &shopEnv{
-			server: env.server,
-			client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
-			store:  env.store,
-			orders: env.orders,
-			fake:   env.fake,
-		}
+		// Same shop, own cookie jar: a separate buyer, not a separate shop.
+		copied := *env
+		copied.client = &http.Client{Jar: jar, Timeout: 20 * time.Second}
+		buyer := &copied
 		_, home := get(t, buyer.client, buyer.server.URL+"/")
 		csrfToken := capture(t, reCSRF, home, "csrf token")
 		if status, body := send(t, buyer.client, http.MethodPost, buyer.server.URL+"/cart/items",

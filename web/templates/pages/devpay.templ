@@ -16,6 +16,7 @@ templ DevPay(view DevPayView) {
 		<div class="mb-6">
 			@components.Alert(components.ToneWarning, "No money moves here. This page only signs a provider callback and posts it to the shop.")
 		</div>
+		@TrackInTelegram(view.Track)
 		<form method="post" action={ templ.SafeURL("/dev/pay/" + view.Number) } class="flex flex-wrap gap-2">
 			<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
 			for _, status := range view.Statuses {

@@ -20,6 +20,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/httpx/handler/webhook"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
+	"github.com/qzq-kiim/shop/internal/telegram"
 )
 
 // StaticDir is where the built CSS, the vendored JS and the images live.
@@ -45,6 +46,8 @@ type Deps struct {
 	Events    webhook.Analytics
 	Admins    admin.Repository
 	Sessions  middleware.SessionReader
+	Links     telegram.Repository
+	Bot       telegram.Bot
 	Health    Health
 	Limiter   *middleware.Limiter
 }
@@ -54,16 +57,17 @@ type Deps struct {
 // csrf -> attribution -> ratelimit.
 func NewRouter(d Deps) http.Handler {
 	shopHandler := shop.New(shop.Deps{
-		Catalog:   d.Catalog,
-		Carts:     d.Carts,
-		Orders:    d.Orders,
-		Payments:  d.Provider,
-		Analytics: d.Analytics,
-		Cookies:   d.Signer,
-		Log:       d.Log,
-		BaseURL:   d.Config.BaseURL,
-		OrderTTL:  d.Config.OrderTTL,
-		IsDev:     d.Config.IsDev(),
+		Catalog:     d.Catalog,
+		Carts:       d.Carts,
+		Orders:      d.Orders,
+		Payments:    d.Provider,
+		Analytics:   d.Analytics,
+		Cookies:     d.Signer,
+		Log:         d.Log,
+		BaseURL:     d.Config.BaseURL,
+		BotUsername: d.Config.Telegram.BotUsername,
+		OrderTTL:    d.Config.OrderTTL,
+		IsDev:       d.Config.IsDev(),
 	})
 	adminHandler := admin.New(d.Admins, d.Metrics, d.Signer, d.Log)
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
@@ -73,6 +77,9 @@ func NewRouter(d Deps) http.Handler {
 	miniAuth := middleware.AdminAuth(d.Sessions, d.Signer, admin.MiniPrefix)
 	tgapp := admin.NewTelegramAuth(d.Admins, d.Signer, d.Config.Telegram.BotToken, d.Config.AdminTelegramIDs, d.Log)
 	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Events, d.Log)
+	bot := webhook.NewTelegram(
+		telegram.NewRouter(d.Links, d.Bot), d.Links,
+		d.Config.Telegram.WebhookSecret, d.Config.Telegram.WebhookPathSecret, d.Log)
 
 	mux := http.NewServeMux()
 
@@ -88,6 +95,10 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("GET /order/{token}/status", shopHandler.OrderStatus)
 	mux.HandleFunc("GET /payment/return/{token}", shopHandler.PaymentReturn)
 	mux.HandleFunc("POST /webhooks/nowpayments", ipn.Handle)
+	// The path secret is part of the address, tech.md §5.5. It is compared in
+	// the handler rather than baked into the pattern so a wrong one is a 401
+	// and not a 404 that would tell a prober the route exists at all.
+	mux.HandleFunc("POST /webhooks/telegram/{secret}", bot.Handle)
 	mux.HandleFunc("GET /healthz", healthz(d.Health))
 
 	mux.HandleFunc("GET /admin/login", adminHandler.LoginForm)
@@ -110,7 +121,7 @@ func NewRouter(d Deps) http.Handler {
 		// The fake provider sends the buyer to a local payment page, so the
 		// whole checkout works without a provider key (tech.md §5.4).
 		if fake, ok := d.Provider.(*nowpayments.Fake); ok {
-			pay := dev.NewPayments(fake, d.Orders, http.HandlerFunc(ipn.Handle), d.Log)
+			pay := dev.NewPayments(fake, d.Orders, http.HandlerFunc(ipn.Handle), d.Config.Telegram.BotUsername, d.Log)
 			mux.HandleFunc("GET /dev/pay/{number}", pay.Page)
 			mux.HandleFunc("POST /dev/pay/{number}", pay.Simulate)
 		}

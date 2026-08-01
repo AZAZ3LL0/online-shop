@@ -50,7 +50,7 @@ func NewNOWPayments(provider nowpayments.Provider, payments *payment.Service, ev
 // answers 200 as soon as the callback is on file, so a retrying provider can
 // never multiply the effect (tech.md §5.4).
 func (h *NOWPayments) Handle(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := timeout(r)
+	ctx, cancel := timeout(r, ipnTimeout)
 	defer cancel()
 
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes))
@@ -131,8 +131,8 @@ func (h *NOWPayments) Handle(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("ok"))
 }
 
-// timeout bounds one callback: the provider must not be able to hold a handler
-// goroutine open, tech.md §16.2.
-func timeout(r *http.Request) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(r.Context(), ipnTimeout)
+// timeout bounds one delivery: an external system must not be able to hold a
+// handler goroutine open, tech.md §16.2.
+func timeout(r *http.Request, d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(r.Context(), d)
 }

@@ -24,7 +24,8 @@ var ErrInitData = errors.New("telegram: init data rejected")
 // initDataSecretKey is the constant Telegram derives the signing key from.
 const initDataSecretKey = "WebAppData"
 
-// User is the Telegram account behind a Mini App launch.
+// User is a Telegram account: the operator behind a Mini App launch and the
+// sender of an incoming bot message are both decoded into this.
 type User struct {
 	ID        int64  `json:"id"`
 	Username  string `json:"username"`
