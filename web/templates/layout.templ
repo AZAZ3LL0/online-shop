@@ -49,6 +49,41 @@ templ Shop(p Page) {
 	</html>
 }
 
+// AdminMini is the Telegram Mini App layout: the same pages as AdminWeb, one
+// column wide, coloured from themeParams and without a sign-in form - the
+// Telegram launch is the only way in (tech.md §5.3, §8).
+templ AdminMini(p Page) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+			<meta name="csrf-token" content={ p.CSRFToken }/>
+			<title>{ p.Title }</title>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+			@p.ThemeStyle()
+			<script defer src="/static/js/tgapp.js"></script>
+			<script defer src="/static/vendor/alpine.min.js"></script>
+		</head>
+		<body class="admin-mini flex min-h-full flex-col">
+			<header class="admin-mini-bar border-b">
+				<nav class="flex items-center justify-between gap-3 px-3 py-2 text-sm" aria-label="Admin">
+					<div class="flex items-center gap-3">
+						<a href="/tgapp/" class="font-semibold">QZQ</a>
+						<a href="/tgapp/analytics" class="underline">analytics</a>
+					</div>
+					if p.AdminUser != "" {
+						<span class="admin-mini-hint truncate">{ p.AdminUser }</span>
+					}
+				</nav>
+			</header>
+			<main class="w-full flex-1 px-3 py-4">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
 // AdminWeb is the full-width admin layout used in the browser.
 templ AdminWeb(p Page) {
 	<!DOCTYPE html>

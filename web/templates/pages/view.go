@@ -102,6 +102,14 @@ type DevPayView struct {
 	Statuses  []string
 }
 
+// TelegramLaunchView is the Mini App entry page: where to post the launch
+// payload and what went wrong if the last attempt was refused.
+type TelegramLaunchView struct {
+	AuthURL   string
+	CSRFToken string
+	Error     string
+}
+
 // LoginView is the admin login form state.
 type LoginView struct {
 	CSRFToken string

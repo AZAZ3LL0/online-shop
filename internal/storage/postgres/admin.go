@@ -68,6 +68,36 @@ func (r *AdminRepo) ByLogin(ctx context.Context, login string) (AdminUser, error
 	}, nil
 }
 
+// ByTelegramID loads the administrator a Telegram account belongs to. It is the
+// Mini App allowlist of tech.md §5.5: no row, no access.
+func (r *AdminRepo) ByTelegramID(ctx context.Context, telegramID int64) (AdminUser, error) {
+	row, err := r.q.GetAdminByTelegramID(ctx, &telegramID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdminUser{}, ErrNoAdmin
+		}
+		return AdminUser{}, fmt.Errorf("get admin by telegram id: %w", err)
+	}
+	return AdminUser{
+		ID:           row.ID,
+		Login:        row.Login,
+		PasswordHash: row.PasswordHash,
+		TelegramID:   row.TelegramID,
+	}, nil
+}
+
+// SetTelegramID binds a Telegram account to an administrator, which is what
+// puts them on the Mini App allowlist. A nil id takes them back off it.
+func (r *AdminRepo) SetTelegramID(ctx context.Context, login string, telegramID *int64) error {
+	if err := r.q.SetAdminTelegramID(ctx, sqlcgen.SetAdminTelegramIDParams{
+		Login:      login,
+		TelegramID: telegramID,
+	}); err != nil {
+		return fmt.Errorf("set admin telegram id: %w", err)
+	}
+	return nil
+}
+
 // CreateSession opens a session for an administrator.
 func (r *AdminRepo) CreateSession(ctx context.Context, adminID uuid.UUID, ip, userAgent string, expiresAt time.Time) (uuid.UUID, error) {
 	id, err := r.q.CreateAdminSession(ctx, sqlcgen.CreateAdminSessionParams{

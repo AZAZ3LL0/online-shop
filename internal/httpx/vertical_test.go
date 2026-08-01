@@ -112,6 +112,8 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Secret:           []byte("0123456789abcdef0123456789abcdef"),
 		PaymentsProvider: config.ProviderFake,
 		TelegramProvider: config.ProviderFake,
+		Telegram:         config.Telegram{BotToken: testBotToken},
+		AdminTelegramIDs: []int64{allowedTelegramID},
 		OrderTTL:         orderTTL,
 	}
 	catalogRepo := postgres.NewCatalogRepo(store)

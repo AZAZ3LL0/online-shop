@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -20,12 +21,22 @@ import (
 const minPasswordRunes = 12
 
 func adminPassword(ctx context.Context, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: app admin-password <login>")
+	if len(args) < 1 || len(args) > 2 {
+		return fmt.Errorf("usage: app admin-password <login> [telegram-id]")
 	}
 	login := strings.TrimSpace(args[0])
 	if login == "" {
 		return fmt.Errorf("login must not be empty")
+	}
+	// The optional telegram id is what puts the account on the Mini App
+	// allowlist: admin_users.telegram_id is the gate tech.md §5.5 checks.
+	var telegramID *int64
+	if len(args) == 2 {
+		id, err := strconv.ParseInt(strings.TrimSpace(args[1]), 10, 64)
+		if err != nil || id == 0 {
+			return fmt.Errorf("telegram id must be a non-zero integer")
+		}
+		telegramID = &id
 	}
 
 	cfg, err := config.Load()
@@ -53,11 +64,20 @@ func adminPassword(ctx context.Context, args []string) error {
 	}
 	defer store.Close()
 
-	id, err := postgres.NewAdminRepo(store).Upsert(ctx, login, hash)
+	admins := postgres.NewAdminRepo(store)
+	id, err := admins.Upsert(ctx, login, hash)
 	if err != nil {
 		return err
 	}
-	log.Info("admin password set", slog.String("login", login), slog.String("id", id.String()))
+	if telegramID != nil {
+		if err := admins.SetTelegramID(ctx, login, telegramID); err != nil {
+			return err
+		}
+	}
+	log.Info("admin password set",
+		slog.String("login", login),
+		slog.String("id", id.String()),
+		slog.Bool("mini_app_allowed", telegramID != nil))
 	return nil
 }
 

@@ -1,0 +1,25 @@
+package pages
+
+import "github.com/qzq-kiim/shop/web/templates/components"
+
+// TelegramLaunch is the Mini App entry point. It holds no admin data: it only
+// forwards the launch payload Telegram left in the URL fragment to /tgapp/auth,
+// which is the request that opens the session.
+templ TelegramLaunch(v TelegramLaunchView) {
+	<div
+		id="tgapp-launch"
+		class="mx-auto max-w-sm py-10 text-center"
+		data-auth-url={ v.AuthURL }
+		data-csrf-token={ v.CSRFToken }
+	>
+		if v.Error != "" {
+			@components.Alert(components.ToneDanger, v.Error)
+			<p class="mt-4 text-sm">Open the panel from the bot that has your account on the allowlist.</p>
+		} else {
+			<p class="text-sm" data-launch-status>Checking your Telegram account...</p>
+			<noscript>
+				<p class="mt-4 text-sm">The Telegram Mini App needs JavaScript to hand over the launch data.</p>
+			</noscript>
+		}
+	</div>
+}

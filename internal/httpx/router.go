@@ -67,6 +67,11 @@ func NewRouter(d Deps) http.Handler {
 	})
 	adminHandler := admin.New(d.Admins, d.Metrics, d.Signer, d.Log)
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
+	// The Mini App runs on the same handlers and the same session store; an
+	// expired session bounces back to the launch page instead of a login form,
+	// because inside Telegram there is no form to fill in (tech.md §8.5).
+	miniAuth := middleware.AdminAuth(d.Sessions, d.Signer, admin.MiniPrefix)
+	tgapp := admin.NewTelegramAuth(d.Admins, d.Signer, d.Config.Telegram.BotToken, d.Config.AdminTelegramIDs, d.Log)
 	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Events, d.Log)
 
 	mux := http.NewServeMux()
@@ -92,6 +97,13 @@ func NewRouter(d Deps) http.Handler {
 	mux.Handle("GET /admin/analytics", adminAuth(http.HandlerFunc(adminHandler.Analytics)))
 	mux.Handle("GET /admin/api/metrics", adminAuth(http.HandlerFunc(adminHandler.Metrics)))
 
+	// The Mini App, tech.md §5.3: the launch exchange plus the same admin pages
+	// in the AdminMini layout.
+	mux.HandleFunc("GET /tgapp", tgapp.Entry)
+	mux.HandleFunc("POST /tgapp/auth", tgapp.Auth)
+	mux.Handle("GET /tgapp/{$}", miniAuth(http.HandlerFunc(adminHandler.Dashboard)))
+	mux.Handle("GET /tgapp/analytics", miniAuth(http.HandlerFunc(adminHandler.Analytics)))
+
 	if d.Config.IsDev() {
 		devHandler := dev.New(d.Log)
 		mux.HandleFunc("GET /dev/kitchen-sink", devHandler.KitchenSink)
@@ -110,7 +122,7 @@ func NewRouter(d Deps) http.Handler {
 		middleware.Logging(d.Log),
 		middleware.SecurityHeaders(!d.Config.IsDev()),
 		middleware.CSRF(d.Signer, d.Config.BaseURL, "/webhooks/"),
-		middleware.Attribution(d.Analytics, d.Signer, d.Log, "/healthz", "/dev/", "/admin"),
+		middleware.Attribution(d.Analytics, d.Signer, d.Log, "/healthz", "/dev/", "/admin", "/tgapp"),
 		middleware.RateLimit(d.Limiter),
 	)
 

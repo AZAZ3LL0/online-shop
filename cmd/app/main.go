@@ -19,6 +19,8 @@ commands:
   migrate          apply database migrations
   seed             fill the database with the demo collection and 30 days of traffic
   admin-password   create or update an administrator password
+                   usage: admin-password <login> [telegram-id]
+                   the optional telegram id opens the mini app for that account
 `
 
 func main() {
