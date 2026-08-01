@@ -53,6 +53,7 @@ func serve(ctx context.Context) error {
 	cartRepo := postgres.NewCartRepo(store)
 	adminRepo := postgres.NewAdminRepo(store)
 	analyticsRepo := postgres.NewAnalyticsRepo(store)
+	metricsRepo := postgres.NewMetricsRepo(store)
 	notifyRepo := postgres.NewNotifyRepo(store)
 	orderRepo := postgres.NewOrderRepo(store)
 	paymentRepo := postgres.NewPaymentRepo(store)
@@ -83,6 +84,8 @@ func serve(ctx context.Context) error {
 		Payments:  paymentService,
 		Provider:  payments,
 		Analytics: analyticsRepo,
+		Metrics:   metricsRepo,
+		Events:    analyticsRepo,
 		Admins:    adminRepo,
 		Sessions:  adminRepo,
 		Health:    store,
