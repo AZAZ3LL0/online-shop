@@ -30,11 +30,21 @@ import (
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/payments/nowpayments"
 	"github.com/qzq-kiim/shop/internal/storage/postgres"
+	"github.com/qzq-kiim/shop/internal/telegram"
 	"github.com/qzq-kiim/shop/migrations"
 )
 
 // orderTTL is the reservation lifetime the tests run with.
 const orderTTL = 30 * time.Minute
+
+// The bot the tests run against. These are not credentials: the fake bot never
+// talks to Telegram, and the two secrets only have to match themselves so the
+// webhook's constant-time checks are exercised (tech.md §9.4).
+const (
+	botUsername       = "qzq_test_bot"
+	webhookSecret     = "test-webhook-secret"
+	webhookPathSecret = "test-path-secret"
+)
 
 var (
 	reCSRF    = regexp.MustCompile(`name="csrf-token" content="([0-9a-f]+)"`)
@@ -50,7 +60,9 @@ type shopEnv struct {
 	client *http.Client
 	store  *postgres.Store
 	orders *postgres.OrderRepo
+	notify *postgres.NotifyRepo
 	fake   *nowpayments.Fake
+	bot    *telegram.Fake
 }
 
 // startShop keeps the signature the catalogue slices use.
@@ -112,7 +124,12 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Secret:           []byte("0123456789abcdef0123456789abcdef"),
 		PaymentsProvider: config.ProviderFake,
 		TelegramProvider: config.ProviderFake,
-		Telegram:         config.Telegram{BotToken: testBotToken},
+		Telegram: config.Telegram{
+			BotToken:          testBotToken,
+			BotUsername:       botUsername,
+			WebhookSecret:     webhookSecret,
+			WebhookPathSecret: webhookPathSecret,
+		},
 		AdminTelegramIDs: []int64{allowedTelegramID},
 		OrderTTL:         orderTTL,
 	}
@@ -122,8 +139,10 @@ func startShopEnv(t *testing.T) *shopEnv {
 	orderRepo := postgres.NewOrderRepo(store)
 	paymentRepo := postgres.NewPaymentRepo(store)
 	analyticsRepo := postgres.NewAnalyticsRepo(store)
+	telegramRepo := postgres.NewTelegramRepo(store)
 	fake := nowpayments.NewFake(cfg.Secret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	bot := telegram.NewFake(log)
 
 	router := httpx.NewRouter(httpx.Deps{
 		Config:    cfg,
@@ -139,6 +158,8 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Events:    analyticsRepo,
 		Admins:    adminRepo,
 		Sessions:  adminRepo,
+		Links:     telegramRepo,
+		Bot:       bot,
 		Health:    store,
 		Limiter:   middleware.NewLimiter(),
 	})
@@ -159,7 +180,9 @@ func startShopEnv(t *testing.T) *shopEnv {
 		client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
 		store:  store,
 		orders: orderRepo,
+		notify: postgres.NewNotifyRepo(store),
 		fake:   fake,
+		bot:    bot,
 	}
 }
 

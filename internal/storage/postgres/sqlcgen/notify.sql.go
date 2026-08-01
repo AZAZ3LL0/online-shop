@@ -101,6 +101,37 @@ func (q *Queries) EnqueueNotification(ctx context.Context, arg EnqueueNotificati
 	return result.RowsAffected(), nil
 }
 
+const enqueueOrderNotification = `-- name: EnqueueOrderNotification :execrows
+INSERT INTO notifications (order_id, chat_id, kind, payload, dedup_key, status, next_attempt_at)
+SELECT $1, l.chat_id, $2, $3, $4, 'pending', now()
+FROM telegram_links l
+WHERE l.order_id = $1
+ON CONFLICT (dedup_key) DO NOTHING
+`
+
+type EnqueueOrderNotificationParams struct {
+	OrderID  pgtype.UUID
+	Kind     string
+	Payload  []byte
+	DedupKey string
+}
+
+// Queued for whoever follows the order in Telegram. An order nobody tracks
+// selects no rows, which is exactly right: there is no one to tell. The dedup
+// key is order_id|kind|status (tech.md §4), so one transition yields one message.
+func (q *Queries) EnqueueOrderNotification(ctx context.Context, arg EnqueueOrderNotificationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, enqueueOrderNotification,
+		arg.OrderID,
+		arg.Kind,
+		arg.Payload,
+		arg.DedupKey,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const markNotificationFailed = `-- name: MarkNotificationFailed :exec
 UPDATE notifications
 SET status = 'failed', attempts = attempts + 1, last_error = $2

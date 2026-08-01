@@ -35,7 +35,7 @@ WHERE number = $1
 FOR UPDATE;
 
 -- name: LockOrderByID :one
-SELECT id, status
+SELECT id, number, status
 FROM orders
 WHERE id = $1
 FOR UPDATE;
@@ -66,8 +66,8 @@ SET stock = stock - LEAST(stock, sqlc.arg(qty)::int),
     reserved = reserved - LEAST(reserved, sqlc.arg(qty)::int)
 WHERE id = sqlc.arg(variant_id);
 
--- name: ListDueOrderIDs :many
-SELECT id
+-- name: ListDueOrders :many
+SELECT id, number
 FROM orders
 WHERE status = 'awaiting_payment'
   AND expires_at IS NOT NULL

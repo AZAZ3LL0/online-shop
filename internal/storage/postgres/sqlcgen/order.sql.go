@@ -210,8 +210,8 @@ func (q *Queries) InsertCheckoutOrder(ctx context.Context, arg InsertCheckoutOrd
 	return i, err
 }
 
-const listDueOrderIDs = `-- name: ListDueOrderIDs :many
-SELECT id
+const listDueOrders = `-- name: ListDueOrders :many
+SELECT id, number
 FROM orders
 WHERE status = 'awaiting_payment'
   AND expires_at IS NOT NULL
@@ -221,24 +221,29 @@ LIMIT $2
 FOR UPDATE SKIP LOCKED
 `
 
-type ListDueOrderIDsParams struct {
+type ListDueOrdersParams struct {
 	ExpiresAt pgtype.Timestamptz
 	Limit     int32
 }
 
-func (q *Queries) ListDueOrderIDs(ctx context.Context, arg ListDueOrderIDsParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, listDueOrderIDs, arg.ExpiresAt, arg.Limit)
+type ListDueOrdersRow struct {
+	ID     uuid.UUID
+	Number string
+}
+
+func (q *Queries) ListDueOrders(ctx context.Context, arg ListDueOrdersParams) ([]ListDueOrdersRow, error) {
+	rows, err := q.db.Query(ctx, listDueOrders, arg.ExpiresAt, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []uuid.UUID{}
+	items := []ListDueOrdersRow{}
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var i ListDueOrdersRow
+		if err := rows.Scan(&i.ID, &i.Number); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -288,7 +293,7 @@ func (q *Queries) ListOrderItemsByOrder(ctx context.Context, orderID uuid.UUID) 
 }
 
 const lockOrderByID = `-- name: LockOrderByID :one
-SELECT id, status
+SELECT id, number, status
 FROM orders
 WHERE id = $1
 FOR UPDATE
@@ -296,13 +301,14 @@ FOR UPDATE
 
 type LockOrderByIDRow struct {
 	ID     uuid.UUID
+	Number string
 	Status string
 }
 
 func (q *Queries) LockOrderByID(ctx context.Context, id uuid.UUID) (LockOrderByIDRow, error) {
 	row := q.db.QueryRow(ctx, lockOrderByID, id)
 	var i LockOrderByIDRow
-	err := row.Scan(&i.ID, &i.Status)
+	err := row.Scan(&i.ID, &i.Number, &i.Status)
 	return i, err
 }
 
