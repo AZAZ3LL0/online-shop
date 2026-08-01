@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/qzq-kiim/shop/internal/auth"
+	"github.com/qzq-kiim/shop/internal/domain/analytics"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
@@ -36,13 +37,14 @@ type Repository interface {
 // Handler serves the admin panel.
 type Handler struct {
 	admins  Repository
+	metrics analytics.MetricsRepository
 	cookies *cookies.Signer
 	log     *slog.Logger
 }
 
 // New wires the admin handler.
-func New(admins Repository, signer *cookies.Signer, log *slog.Logger) *Handler {
-	return &Handler{admins: admins, cookies: signer, log: log}
+func New(admins Repository, metrics analytics.MetricsRepository, signer *cookies.Signer, log *slog.Logger) *Handler {
+	return &Handler{admins: admins, metrics: metrics, cookies: signer, log: log}
 }
 
 // LoginForm renders the sign-in page.
@@ -103,15 +105,64 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
-// Dashboard is the landing page behind adminauth. Its panels arrive with S5.
+// Dashboard is the landing page behind adminauth: the stat cards, the revenue
+// chart with its price markers and the top of the traffic table (tech.md §8.1).
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
+	view, ok := h.metricsView(w, r)
+	if !ok {
+		return
+	}
+	h.renderAdmin(w, r, "Admin - QZQ", pages.AdminDashboard(view))
+}
+
+// Analytics is the full report: the funnel and every traffic source (§8.2).
+func (h *Handler) Analytics(w http.ResponseWriter, r *http.Request) {
+	view, ok := h.metricsView(w, r)
+	if !ok {
+		return
+	}
+	h.renderAdmin(w, r, "Analytics - QZQ", pages.AdminAnalytics(view))
+}
+
+// metricsView loads the report both admin pages are built from. It answers the
+// request itself and returns false when it could not.
+func (h *Handler) metricsView(w http.ResponseWriter, r *http.Request) (pages.MetricsView, bool) {
+	rng, err := h.parseRange(r)
+	if err != nil {
+		// A broken selector must not leave the operator on an error page: the
+		// default period is reported instead, with the picker back at its start.
+		rng, err = analytics.ParseRange("", "", "", "", time.Now().UTC())
+		if err != nil {
+			h.fail(w, r, err)
+			return pages.MetricsView{}, false
+		}
+	}
+	report, err := h.metrics.Metrics(r.Context(), rng)
+	if err != nil {
+		h.fail(w, r, err)
+		return pages.MetricsView{}, false
+	}
+	return pages.MetricsView{Metrics: report, Path: r.URL.Path}, true
+}
+
+// renderAdmin writes one admin page into the browser layout.
+func (h *Handler) renderAdmin(w http.ResponseWriter, r *http.Request, title string, body templ.Component) {
 	admin, _ := reqctx.AdminFrom(r.Context())
 	page := templates.Page{
-		Title:     "Admin - QZQ",
+		Title:     title,
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		AdminUser: admin.Login,
 	}
-	h.render(w, r, templates.AdminWeb(page).Render, pages.AdminDashboard())
+	h.render(w, r, templates.AdminWeb(page).Render, body)
+}
+
+// fail logs the cause and answers with a generic message, tech.md §9.13.
+func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	h.log.Error("admin request failed",
+		slog.String("request_id", reqctx.RequestID(r.Context())),
+		slog.String("path", r.URL.Path),
+		slog.String("error", err.Error()))
+	http.Error(w, "internal server error", http.StatusInternalServerError)
 }
 
 func (h *Handler) rejectLogin(w http.ResponseWriter, r *http.Request, login string, cause error) {

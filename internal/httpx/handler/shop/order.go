@@ -31,6 +31,7 @@ func (h *Handler) OrderPage(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		IsDev:     h.isDev,
 	}
+	h.recordPageView(r)
 	view := pages.OrderView{Order: found, Now: time.Now().UTC()}
 	h.render(w, r, templates.Shop(page).Render, pages.OrderStatus(view))
 }

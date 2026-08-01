@@ -41,6 +41,8 @@ type Deps struct {
 	Payments  *payment.Service
 	Provider  nowpayments.Provider
 	Analytics analytics.Repository
+	Metrics   analytics.MetricsRepository
+	Events    webhook.Analytics
 	Admins    admin.Repository
 	Sessions  middleware.SessionReader
 	Health    Health
@@ -63,9 +65,9 @@ func NewRouter(d Deps) http.Handler {
 		OrderTTL:  d.Config.OrderTTL,
 		IsDev:     d.Config.IsDev(),
 	})
-	adminHandler := admin.New(d.Admins, d.Signer, d.Log)
+	adminHandler := admin.New(d.Admins, d.Metrics, d.Signer, d.Log)
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
-	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Log)
+	ipn := webhook.NewNOWPayments(d.Provider, d.Payments, d.Events, d.Log)
 
 	mux := http.NewServeMux()
 
@@ -87,6 +89,8 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("POST /admin/login", adminHandler.Login)
 	mux.Handle("POST /admin/logout", adminAuth(http.HandlerFunc(adminHandler.Logout)))
 	mux.Handle("GET /admin", adminAuth(http.HandlerFunc(adminHandler.Dashboard)))
+	mux.Handle("GET /admin/analytics", adminAuth(http.HandlerFunc(adminHandler.Analytics)))
+	mux.Handle("GET /admin/api/metrics", adminAuth(http.HandlerFunc(adminHandler.Metrics)))
 
 	if d.Config.IsDev() {
 		devHandler := dev.New(d.Log)

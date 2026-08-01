@@ -23,6 +23,7 @@ func (h *Handler) CheckoutForm(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	h.recordPageView(r)
 	h.recordEvent(r, analytics.EventCheckoutStarted, nil)
 	h.renderCheckout(w, r, view, http.StatusOK)
 }
@@ -179,25 +180,6 @@ func paymentRef(invoice nowpayments.Invoice) order.PaymentRef {
 		ProviderPaymentID: invoice.ID,
 		InvoiceURL:        invoice.URL,
 		Status:            payment.ProviderWaiting,
-	}
-}
-
-// recordEvent writes one funnel event where it happens, tech.md §5.6. A failure
-// to record must never break the purchase.
-func (h *Handler) recordEvent(r *http.Request, t analytics.EventType, payload []byte) {
-	touch, ok := reqctx.Touch(r.Context())
-	if !ok {
-		return
-	}
-	sessionID, ok := reqctx.SessionID(r.Context())
-	if !ok {
-		return
-	}
-	if err := h.analytics.RecordEvent(r.Context(), touch.VisitorID, sessionID, t, payload); err != nil {
-		h.log.Error("record event failed",
-			slog.String("request_id", reqctx.RequestID(r.Context())),
-			slog.String("event", string(t)),
-			slog.String("error", err.Error()))
 	}
 }
 

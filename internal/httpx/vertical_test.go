@@ -119,6 +119,7 @@ func startShopEnv(t *testing.T) *shopEnv {
 	adminRepo := postgres.NewAdminRepo(store)
 	orderRepo := postgres.NewOrderRepo(store)
 	paymentRepo := postgres.NewPaymentRepo(store)
+	analyticsRepo := postgres.NewAnalyticsRepo(store)
 	fake := nowpayments.NewFake(cfg.Secret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -131,7 +132,9 @@ func startShopEnv(t *testing.T) *shopEnv {
 		Orders:    order.NewService(orderRepo, cfg.OrderTTL),
 		Payments:  payment.NewService(paymentRepo),
 		Provider:  fake,
-		Analytics: postgres.NewAnalyticsRepo(store),
+		Analytics: analyticsRepo,
+		Metrics:   postgres.NewMetricsRepo(store),
+		Events:    analyticsRepo,
 		Admins:    adminRepo,
 		Sessions:  adminRepo,
 		Health:    store,

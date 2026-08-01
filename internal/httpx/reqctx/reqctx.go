@@ -18,6 +18,7 @@ const (
 	keySessionID
 	keyCSRFToken
 	keyAdmin
+	keyBot
 )
 
 // Admin identifies the signed-in administrator of the current request.
@@ -58,6 +59,17 @@ func WithSessionID(ctx context.Context, id uuid.UUID) context.Context {
 func SessionID(ctx context.Context) (uuid.UUID, bool) {
 	v, ok := ctx.Value(keySessionID).(uuid.UUID)
 	return v, ok
+}
+
+// WithBot marks the request as coming from a known crawler.
+func WithBot(ctx context.Context, isBot bool) context.Context {
+	return context.WithValue(ctx, keyBot, isBot)
+}
+
+// IsBot reports whether attribution classified the request as a crawler.
+func IsBot(ctx context.Context) bool {
+	v, _ := ctx.Value(keyBot).(bool)
+	return v
 }
 
 // WithCSRFToken stores the token the templates must echo back.

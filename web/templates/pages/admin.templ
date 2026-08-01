@@ -1,10 +1,162 @@
 package pages
 
-import "github.com/qzq-kiim/shop/web/templates/components"
+import (
+	"strconv"
 
-// AdminDashboard is the landing page behind adminauth. Its panels are built in
-// stage S5; the skeleton only proves that the session guard works.
-templ AdminDashboard() {
-	<h1 class="mb-6 text-2xl font-semibold tracking-tight">Dashboard</h1>
-	@components.EmptyState("No panels yet", "Orders, products, analytics and settings arrive in stage S5.")
+	"github.com/qzq-kiim/shop/internal/domain/analytics"
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
+
+// AdminDashboard is the landing page behind adminauth: the stat cards, the
+// revenue chart with its price markers and the top of the traffic table.
+templ AdminDashboard(v MetricsView) {
+	@adminHeading("Dashboard", v)
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+		for _, card := range v.StatCards() {
+			@components.StatCard(card.Label, card.Value, card.Delta, card.Tone)
+		}
+	</div>
+	<section class="mt-10 border border-neutral-200 bg-white p-4">
+		<h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-neutral-500">Revenue and orders</h2>
+		<p class="mb-4 text-xs text-neutral-400">Bars are revenue, the line is orders. Dashed markers are price changes.</p>
+		@components.ChartCanvas("revenue-chart", "bar")
+		@priceMarkers(v)
+	</section>
+	<section class="mt-10 border border-neutral-200 bg-white p-4">
+		<div class="mb-4 flex items-baseline justify-between gap-4">
+			<h2 class="text-sm font-medium uppercase tracking-wide text-neutral-500">Traffic sources</h2>
+			<a href="/admin/analytics" class="text-sm underline">full report</a>
+		</div>
+		@sourcesTable(v.TopSources())
+	</section>
+	@metricsScripts(v)
+}
+
+// AdminAnalytics is the full report: the funnel and every traffic source.
+templ AdminAnalytics(v MetricsView) {
+	@adminHeading("Analytics", v)
+	<section class="border border-neutral-200 bg-white p-4">
+		<h2 class="mb-1 text-sm font-medium uppercase tracking-wide text-neutral-500">Funnel</h2>
+		<p class="mb-4 text-xs text-neutral-400">Visitors who got at least this far, in the selected period.</p>
+		@components.ChartCanvas("funnel-chart", "funnel")
+		<div class="mt-6">
+			@funnelTable(v)
+		</div>
+	</section>
+	<section class="mt-10 border border-neutral-200 bg-white p-4">
+		<h2 class="mb-4 text-sm font-medium uppercase tracking-wide text-neutral-500">Traffic sources</h2>
+		@sourcesTable(v.Sources())
+	</section>
+	@metricsScripts(v)
+}
+
+// adminHeading is the title row with the range picker both pages carry.
+templ adminHeading(title string, v MetricsView) {
+	<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+		<div>
+			<h1 class="text-2xl font-semibold tracking-tight">{ title }</h1>
+			<p class="mt-1 text-xs text-neutral-500">
+				{ v.From() } to { v.To() } &middot; { string(v.Metrics.Range.Granularity) } buckets
+			</p>
+		</div>
+		@rangePicker(v)
+	</div>
+}
+
+// rangePicker is server-side navigation: every panel of the page reports the
+// same period because the page itself is reloaded with it.
+templ rangePicker(v MetricsView) {
+	<div class="flex flex-wrap items-center gap-3">
+		<nav class="flex items-center gap-1 text-sm" aria-label="Period">
+			for _, option := range v.PeriodOptions() {
+				if option.Active {
+					<span aria-current="true" class="border border-neutral-900 bg-neutral-900 px-3 py-1 text-white">{ option.Label }</span>
+				} else {
+					<a href={ templ.SafeURL(option.URL) } class="border border-neutral-200 bg-white px-3 py-1">{ option.Label }</a>
+				}
+			}
+		</nav>
+		<form method="get" action={ templ.SafeURL(v.Path) } class="flex items-center gap-2 text-sm">
+			<input type="hidden" name="range" value="custom"/>
+			<input type="date" name="from" value={ v.From() } class="border border-neutral-300 px-2 py-1" aria-label="From"/>
+			<input type="date" name="to" value={ v.To() } class="border border-neutral-300 px-2 py-1" aria-label="To"/>
+			<button type="submit" class="border border-neutral-900 px-3 py-1">apply</button>
+		</form>
+	</div>
+}
+
+// priceMarkers lists what the markers on the chart stand for. The chart shows
+// where the price moved, this says by how much and why (tech.md §8.3).
+templ priceMarkers(v MetricsView) {
+	if len(v.PriceChanges()) > 0 {
+		<ul class="mt-4 space-y-1 text-xs text-neutral-600">
+			for _, change := range v.PriceChanges() {
+				<li data-price-marker={ change.At.Format("2006-01-02") }>
+					<span class="tabular-nums">{ change.At.Format("Jan 2") }</span>
+					{ " " }
+					<span class="font-medium">{ change.ProductTitle }</span>
+					{ " " }
+					{ change.OldPrice.String() } &rarr; { change.NewPrice.String() }
+					if change.Reason != "" {
+						<span class="text-neutral-400">({ change.Reason })</span>
+					}
+				</li>
+			}
+		</ul>
+	}
+}
+
+// funnelTable prints the stages with both transition rates.
+templ funnelTable(v MetricsView) {
+	@components.Table(
+		[]string{"Stage", "Visitors", "From previous", "From visits"},
+		funnelRows(v),
+	)
+}
+
+// sourcesTable is the traffic breakdown by campaign and referrer.
+templ sourcesTable(sources []analytics.Source) {
+	if len(sources) == 0 {
+		@components.EmptyState("No traffic yet", "Nothing was recorded in this period.")
+	} else {
+		@components.Table(
+			[]string{"Source", "Referrer", "Visitors", "Orders", "Revenue", "Conversion"},
+			sourceRows(sources),
+		)
+	}
+}
+
+templ funnelRow(step FunnelStep) {
+	<td class="px-3 py-2">
+		<span class="block">{ step.Label }</span>
+		<span class="mt-1 block h-1 bg-neutral-900" style={ "width:" + step.Width }></span>
+	</td>
+	<td class="px-3 py-2 tabular-nums">{ strconv.FormatInt(step.Count, 10) }</td>
+	<td class="px-3 py-2 tabular-nums">{ step.RateFromPrevious }</td>
+	<td class="px-3 py-2 tabular-nums">{ step.RateFromTop }</td>
+}
+
+templ sourceRow(s analytics.Source) {
+	<td class="px-3 py-2">{ s.Label() }</td>
+	<td class="px-3 py-2 text-neutral-500">
+		if s.Referrer != "" {
+			{ s.Referrer }
+		} else {
+			-
+		}
+	</td>
+	<td class="px-3 py-2 tabular-nums">{ strconv.FormatInt(s.Visitors, 10) }</td>
+	<td class="px-3 py-2 tabular-nums">{ strconv.FormatInt(s.Orders, 10) }</td>
+	<td class="px-3 py-2 tabular-nums">
+		@components.Money(s.Revenue)
+	</td>
+	<td class="px-3 py-2 tabular-nums">{ percent(s.Conversion()) }</td>
+}
+
+// metricsScripts loads the vendored Chart.js and the chart bootstrap. Both are
+// local files: the CSP forbids inline scripts and external hosts (tech.md §9.7).
+templ metricsScripts(v MetricsView) {
+	<div id="metrics-root" data-metrics-url={ v.APIURL() } hidden></div>
+	<script defer src="/static/vendor/chart.umd.min.js"></script>
+	<script defer src="/static/js/metrics.js"></script>
 }

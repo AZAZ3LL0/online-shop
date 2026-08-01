@@ -33,9 +33,13 @@ var botAgents = []string{
 	"python-requests", "go-http-client", "facebookexternalhit", "slurp",
 }
 
-// Attribution issues the visitor and session cookies and records a visit when a
-// new session starts. Only GET requests are attributed: form posts continue an
-// existing session.
+// Attribution issues the visitor and session cookies, hands the attribution
+// snapshot to the handlers and records a visit when a new session starts.
+//
+// Every method is attributed, because the cart and the checkout are form posts
+// and an order without its visitor is an order that cannot be reported on. Only
+// a page request writes to visits: a post continues the session its form was
+// rendered in (tech.md §5.6).
 func Attribution(repo analytics.Repository, signer *cookies.Signer, log *slog.Logger, skip ...string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,10 +47,7 @@ func Attribution(repo analytics.Repository, signer *cookies.Signer, log *slog.Lo
 				next.ServeHTTP(w, r)
 				return
 			}
-			if r.Method != http.MethodGet && r.Method != http.MethodHead {
-				next.ServeHTTP(w, r)
-				return
-			}
+			isPageRequest := r.Method == http.MethodGet || r.Method == http.MethodHead
 
 			visitorID, isNewVisitor := readOrIssueUUID(w, r, signer, CookieVisitor, visitorTTL)
 			sessionID, isNewSession := readOrIssueUUID(w, r, signer, CookieSession, sessionTTL)
@@ -73,7 +74,7 @@ func Attribution(repo analytics.Repository, signer *cookies.Signer, log *slog.Lo
 				}
 			}
 
-			if isNewSession {
+			if isNewSession && isPageRequest {
 				visit := analytics.Visit{
 					SessionID: sessionID,
 					Touch:     touch,
@@ -89,6 +90,7 @@ func Attribution(repo analytics.Repository, signer *cookies.Signer, log *slog.Lo
 
 			ctx := reqctx.WithTouch(r.Context(), touch)
 			ctx = reqctx.WithSessionID(ctx, sessionID)
+			ctx = reqctx.WithBot(ctx, isBot)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

@@ -36,6 +36,31 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) error 
 	return err
 }
 
+const insertOrderPaidEvent = `-- name: InsertOrderPaidEvent :exec
+INSERT INTO events (visitor_id, session_id, type, payload, created_at)
+SELECT v.visitor_id, v.session_id, 'order_paid', $1::jsonb, now()
+FROM visits v
+JOIN orders o ON o.visitor_id = v.visitor_id
+WHERE o.id = $2
+ORDER BY v.created_at DESC
+LIMIT 1
+`
+
+type InsertOrderPaidEventParams struct {
+	Payload []byte
+	OrderID uuid.UUID
+}
+
+// InsertOrderPaidEvent closes the funnel from the provider callback, which
+// carries no cookies of its own. The event is filed against the last session the
+// buyer was seen in, so it lines up with the earlier steps of the same visitor.
+// An order whose visitor never landed a visit produces no event and is simply
+// not part of the funnel.
+func (q *Queries) InsertOrderPaidEvent(ctx context.Context, arg InsertOrderPaidEventParams) error {
+	_, err := q.db.Exec(ctx, insertOrderPaidEvent, arg.Payload, arg.OrderID)
+	return err
+}
+
 const insertVisit = `-- name: InsertVisit :exec
 INSERT INTO visits (visitor_id, session_id, landing_path, referrer,
                     utm_source, utm_medium, utm_campaign, utm_content, utm_term,

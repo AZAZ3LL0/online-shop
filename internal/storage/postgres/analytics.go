@@ -43,6 +43,19 @@ func (r *AnalyticsRepo) RecordVisit(ctx context.Context, v analytics.Visit) erro
 	return nil
 }
 
+// RecordOrderPaid closes the funnel for one order. The provider callback carries
+// no cookies, so the event is filed against the last session of the buyer.
+func (r *AnalyticsRepo) RecordOrderPaid(ctx context.Context, orderID uuid.UUID) error {
+	err := r.q.InsertOrderPaidEvent(ctx, sqlcgen.InsertOrderPaidEventParams{
+		OrderID: orderID,
+		Payload: []byte(`{}`),
+	})
+	if err != nil {
+		return fmt.Errorf("insert order paid event: %w", err)
+	}
+	return nil
+}
+
 // RecordEvent appends one server-side event.
 func (r *AnalyticsRepo) RecordEvent(ctx context.Context, visitorID, sessionID uuid.UUID, t analytics.EventType, payload []byte) error {
 	if len(payload) == 0 {

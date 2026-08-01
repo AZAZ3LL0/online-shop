@@ -95,6 +95,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		IsDev:     h.isDev,
 	}
+	h.recordPageView(r)
 	body := pages.Home(pages.HomeView{Products: products, Cart: view, CSRFToken: page.CSRFToken})
 	h.render(w, r, templates.Shop(page).Render, body)
 }
@@ -127,6 +128,8 @@ func (h *Handler) Product(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		IsDev:     h.isDev,
 	}
+	h.recordPageView(r)
+	h.recordProductView(r, product.ID, product.Slug)
 	body := pages.Product(pages.ProductView{Product: product, Cart: view, CSRFToken: page.CSRFToken})
 	h.render(w, r, templates.Shop(page).Render, body)
 }
@@ -149,6 +152,7 @@ func (h *Handler) CartPage(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: reqctx.CSRFToken(r.Context()),
 		IsDev:     h.isDev,
 	}
+	h.recordPageView(r)
 	h.render(w, r, templates.Shop(page).Render, pages.CartPage(view))
 }
 
@@ -177,6 +181,10 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 		h.fragmentFailure(w, r, cartID, err)
 		return
 	}
+	h.recordEvent(r, analytics.EventAddToCart, payload(map[string]any{
+		"variant_id": variantID.String(),
+		"qty":        qty,
+	}))
 	h.writeFragment(w, r, cartID, http.StatusOK, "")
 }
 
@@ -224,5 +232,6 @@ func (h *Handler) RemoveItem(w http.ResponseWriter, r *http.Request) {
 		h.fragmentFailure(w, r, cartID, err)
 		return
 	}
+	h.recordEvent(r, analytics.EventRemoveFromCart, payload(map[string]any{"item_id": itemID.String()}))
 	h.writeFragment(w, r, cartID, http.StatusOK, "")
 }
