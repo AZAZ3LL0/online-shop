@@ -163,6 +163,33 @@ func TestFunnelEventsAreWrittenWhereTheyHappen(t *testing.T) {
 	}
 }
 
+// TestPaidOrderClosesTheFunnelOnce covers the last funnel step, which is
+// written from the provider callback: it lands exactly once however often the
+// same notification is redelivered (tech.md §11.2).
+func TestPaidOrderClosesTheFunnelOnce(t *testing.T) {
+	env := startShopEnv(t)
+	placed := checkout(t, env, "1")
+
+	for range 3 {
+		if status, body := callback(t, env, placed.number, "finished", true); status != http.StatusOK {
+			t.Fatalf("callback = %d: %s", status, body)
+		}
+	}
+
+	var events int
+	err := env.store.Pool().QueryRow(context.Background(), `
+		SELECT count(*)
+		FROM events e
+		JOIN orders o ON o.visitor_id = e.visitor_id
+		WHERE o.number = $1 AND e.type = 'order_paid'`, placed.number).Scan(&events)
+	if err != nil {
+		t.Fatalf("count order_paid events: %v", err)
+	}
+	if events != 1 {
+		t.Fatalf("order_paid events for one purchase = %d, want 1", events)
+	}
+}
+
 // sessionCookie returns the analytics session id the client was issued. The
 // cookie is base64(value).base64(mac), see cookies.Signer.
 func sessionCookie(t *testing.T, env *shopEnv) string {
