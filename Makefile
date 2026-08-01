@@ -8,7 +8,7 @@ TAILWIND         ?= ./bin/tailwindcss
 DEV_DB_NAME      ?= qzq-dev-db
 DEV_DB_PORT      ?= 5434
 
-.PHONY: help tools generate css build test lint vet vuln gate run migrate seed db-dev db-dev-stop up down
+.PHONY: help tools generate css build test lint vet vuln gate run migrate seed db-dev db-dev-stop up down logs backup set-webhook
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-12s %s\n", $$1, $$2}'
@@ -77,8 +77,22 @@ db-dev: ## start the throwaway postgres the local binary talks to
 db-dev-stop: ## drop the throwaway dev database
 	-docker rm -f $(DEV_DB_NAME)
 
+# --env-file makes compose interpolate SITE_ADDRESS, APP_BASE_URL and
+# POSTGRES_PASSWORD from the same .env the app itself reads, instead of from a
+# second file next to docker/compose.yml.
+COMPOSE = docker compose --env-file .env -f docker/compose.yml
+
 up: ## start app, postgres and caddy
-	docker compose -f docker/compose.yml up -d --build
+	$(COMPOSE) up -d --build
 
 down:
-	docker compose -f docker/compose.yml down
+	$(COMPOSE) down
+
+logs: ## follow the application log
+	$(COMPOSE) logs -f app
+
+backup: ## take a database dump right now, outside the cron schedule
+	./scripts/backup-db.sh
+
+set-webhook: ## point the telegram bot at APP_BASE_URL (production only)
+	$(LOCAL_ENV) go run ./cmd/app set-webhook

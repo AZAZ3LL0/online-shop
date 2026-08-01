@@ -21,6 +21,7 @@ commands:
   admin-password   create or update an administrator password
                    usage: admin-password <login> [telegram-id]
                    the optional telegram id opens the mini app for that account
+  set-webhook      point the telegram bot at APP_BASE_URL (production only)
 `
 
 func main() {
@@ -51,6 +52,8 @@ func run(ctx context.Context, command string, args []string) error {
 		return seed(ctx)
 	case "admin-password":
 		return adminPassword(ctx, args)
+	case "set-webhook":
+		return setWebhook(ctx)
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		return fmt.Errorf("unknown command %q", command)
