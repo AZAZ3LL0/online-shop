@@ -45,6 +45,7 @@ UPDATE orders
 SET status = $2,
     updated_at = now(),
     paid_at = CASE WHEN $2 = 'paid' THEN now() ELSE paid_at END,
+    shipped_at = CASE WHEN $2 = 'shipped' THEN now() ELSE shipped_at END,
     cancelled_at = CASE WHEN $2 = 'cancelled' THEN now() ELSE cancelled_at END
 WHERE id = $1 AND status = $3;
 

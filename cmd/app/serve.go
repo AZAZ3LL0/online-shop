@@ -11,8 +11,10 @@ import (
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
@@ -59,8 +61,16 @@ func serve(ctx context.Context) error {
 	paymentRepo := postgres.NewPaymentRepo(store)
 	telegramRepo := postgres.NewTelegramRepo(store)
 
-	cartService := cart.NewService(cartRepo, catalogRepo, shopCurrency, cfg.ShippingCents)
-	orderService := order.NewService(orderRepo, cfg.OrderTTL)
+	// Delivery, the reservation window and the pause switch are operator
+	// settings; the environment only says what they start out as (tech.md §5.3).
+	shopSettings := settings.NewService(postgres.NewSettingsRepo(store), settings.Values{
+		ShippingCents: cfg.ShippingCents,
+		OrderTTL:      cfg.OrderTTL,
+	})
+	cartService := cart.NewService(cartRepo, catalogRepo, shopCurrency, shopSettings)
+	orderService := order.NewService(orderRepo, shopSettings)
+	adminOrders := order.NewAdminService(orderRepo)
+	adminCatalog := catalog.NewAdminService(postgres.NewCatalogAdminRepo(store), shopCurrency)
 	paymentService := payment.NewService(paymentRepo)
 	signer := cookies.NewSigner(cfg.Secret, !cfg.IsDev())
 	limiter := middleware.NewLimiter()
@@ -76,23 +86,29 @@ func serve(ctx context.Context) error {
 	)
 
 	router := httpx.NewRouter(httpx.Deps{
-		Config:    cfg,
-		Log:       log,
-		Signer:    signer,
-		Catalog:   catalogRepo,
-		Carts:     cartService,
-		Orders:    orderService,
-		Payments:  paymentService,
-		Provider:  payments,
-		Analytics: analyticsRepo,
-		Metrics:   metricsRepo,
-		Events:    analyticsRepo,
-		Admins:    adminRepo,
-		Sessions:  adminRepo,
-		Links:     telegramRepo,
-		Bot:       bot,
-		Health:    store,
-		Limiter:   limiter,
+		Config:       cfg,
+		Log:          log,
+		Signer:       signer,
+		Catalog:      catalogRepo,
+		Carts:        cartService,
+		Orders:       orderService,
+		Payments:     paymentService,
+		Provider:     payments,
+		Analytics:    analyticsRepo,
+		Metrics:      metricsRepo,
+		Events:       analyticsRepo,
+		Admins:       adminRepo,
+		AdminOrders:  adminOrders,
+		AdminCatalog: adminCatalog,
+		Settings:     shopSettings,
+		Currency:     shopCurrency,
+		PaymentLog:   paymentRepo,
+		Sessions:     adminRepo,
+		Links:        telegramRepo,
+		ChatLinks:    telegramRepo,
+		Bot:          bot,
+		Health:       store,
+		Limiter:      limiter,
 	})
 
 	server := &http.Server{

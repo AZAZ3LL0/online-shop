@@ -23,8 +23,10 @@ import (
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/cart"
+	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/middleware"
@@ -61,6 +63,8 @@ type shopEnv struct {
 	store  *postgres.Store
 	orders *postgres.OrderRepo
 	notify *postgres.NotifyRepo
+	config *settings.Service
+	links  *postgres.TelegramRepo
 	fake   *nowpayments.Fake
 	bot    *telegram.Fake
 }
@@ -140,28 +144,35 @@ func startShopEnv(t *testing.T) *shopEnv {
 	paymentRepo := postgres.NewPaymentRepo(store)
 	analyticsRepo := postgres.NewAnalyticsRepo(store)
 	telegramRepo := postgres.NewTelegramRepo(store)
+	shopSettings := settings.NewService(postgres.NewSettingsRepo(store), settings.Values{OrderTTL: cfg.OrderTTL})
 	fake := nowpayments.NewFake(cfg.Secret)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	bot := telegram.NewFake(log)
 
 	router := httpx.NewRouter(httpx.Deps{
-		Config:    cfg,
-		Log:       log,
-		Signer:    cookies.NewSigner(cfg.Secret, false),
-		Catalog:   catalogRepo,
-		Carts:     cart.NewService(cartRepo, catalogRepo, "USD", 0),
-		Orders:    order.NewService(orderRepo, cfg.OrderTTL),
-		Payments:  payment.NewService(paymentRepo),
-		Provider:  fake,
-		Analytics: analyticsRepo,
-		Metrics:   postgres.NewMetricsRepo(store),
-		Events:    analyticsRepo,
-		Admins:    adminRepo,
-		Sessions:  adminRepo,
-		Links:     telegramRepo,
-		Bot:       bot,
-		Health:    store,
-		Limiter:   middleware.NewLimiter(),
+		Config:       cfg,
+		Log:          log,
+		Signer:       cookies.NewSigner(cfg.Secret, false),
+		Catalog:      catalogRepo,
+		Carts:        cart.NewService(cartRepo, catalogRepo, "USD", shopSettings),
+		Orders:       order.NewService(orderRepo, shopSettings),
+		Payments:     payment.NewService(paymentRepo),
+		Provider:     fake,
+		Analytics:    analyticsRepo,
+		Metrics:      postgres.NewMetricsRepo(store),
+		Events:       analyticsRepo,
+		Admins:       adminRepo,
+		AdminOrders:  order.NewAdminService(orderRepo),
+		AdminCatalog: catalog.NewAdminService(postgres.NewCatalogAdminRepo(store), "USD"),
+		Settings:     shopSettings,
+		Currency:     "USD",
+		PaymentLog:   paymentRepo,
+		Sessions:     adminRepo,
+		Links:        telegramRepo,
+		ChatLinks:    telegramRepo,
+		Bot:          bot,
+		Health:       store,
+		Limiter:      middleware.NewLimiter(),
 	})
 
 	server := &httptest.Server{
@@ -177,6 +188,8 @@ func startShopEnv(t *testing.T) *shopEnv {
 	}
 	return &shopEnv{
 		server: server,
+		links:  telegramRepo,
+		config: shopSettings,
 		client: &http.Client{Jar: jar, Timeout: 20 * time.Second},
 		store:  store,
 		orders: orderRepo,

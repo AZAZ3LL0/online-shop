@@ -13,6 +13,7 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/domain/order"
 	"github.com/qzq-kiim/shop/internal/domain/payment"
+	"github.com/qzq-kiim/shop/internal/domain/settings"
 	"github.com/qzq-kiim/shop/internal/httpx/cookies"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/admin"
 	"github.com/qzq-kiim/shop/internal/httpx/handler/dev"
@@ -33,23 +34,29 @@ type Health interface {
 
 // Deps is everything the router needs, injected by main.
 type Deps struct {
-	Config    config.Config
-	Log       *slog.Logger
-	Signer    *cookies.Signer
-	Catalog   catalog.Repository
-	Carts     *cart.Service
-	Orders    *order.Service
-	Payments  *payment.Service
-	Provider  nowpayments.Provider
-	Analytics analytics.Repository
-	Metrics   analytics.MetricsRepository
-	Events    webhook.Analytics
-	Admins    admin.Repository
-	Sessions  middleware.SessionReader
-	Links     telegram.Repository
-	Bot       telegram.Bot
-	Health    Health
-	Limiter   *middleware.Limiter
+	Config       config.Config
+	Log          *slog.Logger
+	Signer       *cookies.Signer
+	Catalog      catalog.Repository
+	Carts        *cart.Service
+	Orders       *order.Service
+	Payments     *payment.Service
+	Provider     nowpayments.Provider
+	Analytics    analytics.Repository
+	Metrics      analytics.MetricsRepository
+	Events       webhook.Analytics
+	Admins       admin.Repository
+	AdminOrders  *order.AdminService
+	AdminCatalog *catalog.AdminService
+	Settings     *settings.Service
+	PaymentLog   admin.PaymentLog
+	Sessions     middleware.SessionReader
+	Links        telegram.Repository
+	ChatLinks    admin.ChatLinks
+	Bot          telegram.Bot
+	Health       Health
+	Limiter      *middleware.Limiter
+	Currency     string
 }
 
 // NewRouter mounts every route group behind the middleware chain of
@@ -66,10 +73,23 @@ func NewRouter(d Deps) http.Handler {
 		Log:         d.Log,
 		BaseURL:     d.Config.BaseURL,
 		BotUsername: d.Config.Telegram.BotUsername,
-		OrderTTL:    d.Config.OrderTTL,
-		IsDev:       d.Config.IsDev(),
+
+		Settings: d.Settings,
+		IsDev:    d.Config.IsDev(),
 	})
-	adminHandler := admin.New(d.Admins, d.Metrics, d.Signer, d.Log)
+	adminHandler := admin.New(admin.Deps{
+		Admins:   d.Admins,
+		Metrics:  d.Metrics,
+		Orders:   d.AdminOrders,
+		Catalog:  d.Catalog,
+		Products: d.AdminCatalog,
+		Settings: d.Settings,
+		Payments: d.PaymentLog,
+		Links:    d.ChatLinks,
+		Cookies:  d.Signer,
+		Currency: d.Currency,
+		Log:      d.Log,
+	})
 	adminAuth := middleware.AdminAuth(d.Sessions, d.Signer, "/admin/login")
 	// The Mini App runs on the same handlers and the same session store; an
 	// expired session bounces back to the launch page instead of a login form,
@@ -105,6 +125,14 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("POST /admin/login", adminHandler.Login)
 	mux.Handle("POST /admin/logout", adminAuth(http.HandlerFunc(adminHandler.Logout)))
 	mux.Handle("GET /admin", adminAuth(http.HandlerFunc(adminHandler.Dashboard)))
+	mux.Handle("GET /admin/orders", adminAuth(http.HandlerFunc(adminHandler.Orders)))
+	mux.Handle("GET /admin/orders/{id}", adminAuth(http.HandlerFunc(adminHandler.Order)))
+	mux.Handle("POST /admin/orders/{id}/status", adminAuth(http.HandlerFunc(adminHandler.OrderStatus)))
+	mux.Handle("GET /admin/products", adminAuth(http.HandlerFunc(adminHandler.Products)))
+	mux.Handle("POST /admin/products/{id}/price", adminAuth(http.HandlerFunc(adminHandler.ProductPrice)))
+	mux.Handle("POST /admin/products/{id}/stock", adminAuth(http.HandlerFunc(adminHandler.ProductStock)))
+	mux.Handle("GET /admin/settings", adminAuth(http.HandlerFunc(adminHandler.Settings)))
+	mux.Handle("POST /admin/settings", adminAuth(http.HandlerFunc(adminHandler.SettingsSave)))
 	mux.Handle("GET /admin/analytics", adminAuth(http.HandlerFunc(adminHandler.Analytics)))
 	mux.Handle("GET /admin/api/metrics", adminAuth(http.HandlerFunc(adminHandler.Metrics)))
 
@@ -113,6 +141,9 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("GET /tgapp", tgapp.Entry)
 	mux.HandleFunc("POST /tgapp/auth", tgapp.Auth)
 	mux.Handle("GET /tgapp/{$}", miniAuth(http.HandlerFunc(adminHandler.Dashboard)))
+	mux.Handle("GET /tgapp/orders", miniAuth(http.HandlerFunc(adminHandler.Orders)))
+	mux.Handle("GET /tgapp/orders/{id}", miniAuth(http.HandlerFunc(adminHandler.Order)))
+	mux.Handle("GET /tgapp/products", miniAuth(http.HandlerFunc(adminHandler.Products)))
 	mux.Handle("GET /tgapp/analytics", miniAuth(http.HandlerFunc(adminHandler.Analytics)))
 
 	if d.Config.IsDev() {
