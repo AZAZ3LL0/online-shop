@@ -119,12 +119,9 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 // checkoutView loads the priced cart. It answers the request itself and returns
 // false when there is nothing to check out.
 func (h *Handler) checkoutView(w http.ResponseWriter, r *http.Request) (pages.CheckoutView, bool) {
-	cartID, err := h.ensureCart(w, r)
-	if err != nil {
-		h.fail(w, r, err)
-		return pages.CheckoutView{}, false
-	}
-	cartView, err := h.cartView(r, cartID)
+	// Reading the checkout form must not open a cart either: an empty one is
+	// sent back to /cart below.
+	cartView, err := h.cartView(r, h.cartID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return pages.CheckoutView{}, false

@@ -17,15 +17,35 @@ import (
 	"github.com/qzq-kiim/shop/web/templates/pages"
 )
 
-// ensureCart resolves the cart from the signed cookie, creating one when the
-// cookie is missing or points at a cart that no longer exists.
-func (h *Handler) ensureCart(w http.ResponseWriter, r *http.Request) (uuid.UUID, error) {
-	var current *uuid.UUID
-	if raw, ok := h.cookies.Get(r, CookieCart); ok {
-		if id, err := uuid.Parse(raw); err == nil {
-			current = &id
-		}
+// cartID reads the cart the browser carries in its signed cookie. A missing or
+// tampered cookie is simply "no cart yet", never an error: a stale cookie must
+// not break the storefront.
+func (h *Handler) cartID(r *http.Request) *uuid.UUID {
+	raw, ok := h.cookies.Get(r, CookieCart)
+	if !ok {
+		return nil
 	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
+// Messages the cart fragment shows on a rejected mutation. They are defined
+// once so a bad quantity reads the same whether the form sent a word or an
+// out-of-range number, and they never mention anything internal.
+const (
+	badQtyMessage      = "Quantity must be between 1 and 10."
+	missingItemMessage = "That item is no longer in your cart."
+	outOfStockMessage  = "Not enough stock left for that size."
+)
+
+// ensureCart resolves the cart from the signed cookie, creating one when the
+// cookie is missing or points at a cart that no longer exists. Only mutations
+// call it: plain browsing must not open a cart row per visitor.
+func (h *Handler) ensureCart(w http.ResponseWriter, r *http.Request) (uuid.UUID, error) {
+	current := h.cartID(r)
 	var visitorID *uuid.UUID
 	if touch, ok := reqctx.Touch(r.Context()); ok {
 		visitorID = &touch.VisitorID
@@ -41,7 +61,7 @@ func (h *Handler) ensureCart(w http.ResponseWriter, r *http.Request) (uuid.UUID,
 	return cartID, nil
 }
 
-func (h *Handler) cartView(r *http.Request, cartID uuid.UUID) (pages.CartView, error) {
+func (h *Handler) cartView(r *http.Request, cartID *uuid.UUID) (pages.CartView, error) {
 	c, totals, err := h.carts.View(r.Context(), cartID)
 	if err != nil {
 		return pages.CartView{}, err
@@ -73,7 +93,7 @@ func (h *Handler) renderBody(w http.ResponseWriter, r *http.Request, layout func
 }
 
 // writeFragment answers a cart mutation with the cart fragment only.
-func (h *Handler) writeFragment(w http.ResponseWriter, r *http.Request, cartID uuid.UUID, status int, message string) {
+func (h *Handler) writeFragment(w http.ResponseWriter, r *http.Request, cartID *uuid.UUID, status int, message string) {
 	view, err := h.cartView(r, cartID)
 	if err != nil {
 		h.fail(w, r, err)
@@ -90,20 +110,20 @@ func (h *Handler) writeFragment(w http.ResponseWriter, r *http.Request, cartID u
 	}
 }
 
-func (h *Handler) fragmentError(w http.ResponseWriter, r *http.Request, cartID uuid.UUID, status int, message string) {
+func (h *Handler) fragmentError(w http.ResponseWriter, r *http.Request, cartID *uuid.UUID, status int, message string) {
 	h.writeFragment(w, r, cartID, status, message)
 }
 
 // fragmentFailure maps a domain error onto a status code and a message that
 // gives nothing internal away.
-func (h *Handler) fragmentFailure(w http.ResponseWriter, r *http.Request, cartID uuid.UUID, err error) {
+func (h *Handler) fragmentFailure(w http.ResponseWriter, r *http.Request, cartID *uuid.UUID, err error) {
 	switch {
 	case errors.Is(err, cart.ErrCartItemLimit):
-		h.writeFragment(w, r, cartID, http.StatusUnprocessableEntity, "Quantity must be between 1 and 10.")
+		h.writeFragment(w, r, cartID, http.StatusUnprocessableEntity, badQtyMessage)
 	case errors.Is(err, catalog.ErrOutOfStock):
-		h.writeFragment(w, r, cartID, http.StatusConflict, "Not enough stock left for that size.")
+		h.writeFragment(w, r, cartID, http.StatusConflict, outOfStockMessage)
 	case errors.Is(err, cart.ErrItemNotFound), errors.Is(err, catalog.ErrNotFound):
-		h.writeFragment(w, r, cartID, http.StatusNotFound, "That item is no longer available.")
+		h.writeFragment(w, r, cartID, http.StatusNotFound, missingItemMessage)
 	default:
 		h.fail(w, r, err)
 	}
