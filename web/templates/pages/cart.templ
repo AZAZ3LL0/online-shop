@@ -62,26 +62,7 @@ templ CartFragment(view CartView) {
 					</li>
 				}
 			</ul>
-			<dl class="mt-4 space-y-1 text-sm">
-				<div class="flex justify-between">
-					<dt class="text-ink-muted">Subtotal</dt>
-					<dd>
-						@components.Money(view.Subtotal)
-					</dd>
-				</div>
-				<div class="flex justify-between">
-					<dt class="text-ink-muted">Shipping</dt>
-					<dd>
-						@components.Money(view.Shipping)
-					</dd>
-				</div>
-				<div class="mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold">
-					<dt>Total</dt>
-					<dd>
-						@components.Money(view.Total)
-					</dd>
-				</div>
-			</dl>
+			@components.Totals(view.Subtotal, view.Shipping, view.Total)
 			<a href="/checkout" class="mt-5 block bg-accent px-5 py-3 text-center text-sm font-medium uppercase tracking-ornament text-accent-fg transition-opacity duration-200 ease-soft hover:opacity-90">Checkout</a>
 		}
 	</div>

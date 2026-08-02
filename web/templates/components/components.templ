@@ -195,6 +195,33 @@ templ Money(amount money.Amount) {
 	<span class="tabular-nums">{ amount.String() }</span>
 }
 
+// Totals is the priced summary the cart, the checkout and the order status
+// page all end with. The three of them showed the same three lines from three
+// copies of the markup, which is what tech.md §7.2 forbids: one renderer means
+// a shipping line can never appear on one page and be forgotten on another.
+templ Totals(subtotal, shipping, total money.Amount) {
+	<dl class="mt-4 space-y-1 text-sm">
+		<div class="flex justify-between">
+			<dt class="text-ink-muted">Subtotal</dt>
+			<dd>
+				@Money(subtotal)
+			</dd>
+		</div>
+		<div class="flex justify-between">
+			<dt class="text-ink-muted">Shipping</dt>
+			<dd>
+				@Money(shipping)
+			</dd>
+		</div>
+		<div class="mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold">
+			<dt>Total</dt>
+			<dd>
+				@Money(total)
+			</dd>
+		</div>
+	</dl>
+}
+
 templ StatusPill(status order.Status) {
 	@Badge(string(status), StatusTone(status))
 }

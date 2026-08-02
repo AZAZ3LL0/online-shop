@@ -184,31 +184,15 @@ func OrderStatus(view OrderView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</ul><dl class=\"mt-4 space-y-1 text-sm\"><div class=\"flex justify-between\"><dt class=\"text-ink-muted\">Subtotal</dt><dd>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</ul>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = components.Money(view.Order.Subtotal).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Totals(view.Order.Subtotal, view.Order.Shipping, view.Order.Total).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-ink-muted\">Shipping</dt><dd>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = components.Money(view.Order.Shipping).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</dd></div><div class=\"mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold\"><dt>Total</dt><dd>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = components.Money(view.Order.Total).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</dd></div></dl></div><p class=\"mt-6 text-xs text-ink-muted\">Keep this link: it is the only way back to this page.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div><p class=\"mt-6 text-xs text-ink-muted\">Keep this link: it is the only way back to this page.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

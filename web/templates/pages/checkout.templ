@@ -59,26 +59,7 @@ templ Checkout(view CheckoutView) {
 						</li>
 					}
 				</ul>
-				<dl class="mt-4 space-y-1 text-sm">
-					<div class="flex justify-between">
-						<dt class="text-ink-muted">Subtotal</dt>
-						<dd>
-							@components.Money(view.Cart.Subtotal)
-						</dd>
-					</div>
-					<div class="flex justify-between">
-						<dt class="text-ink-muted">Shipping</dt>
-						<dd>
-							@components.Money(view.Cart.Shipping)
-						</dd>
-					</div>
-					<div class="mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold">
-						<dt>Total</dt>
-						<dd>
-							@components.Money(view.Cart.Total)
-						</dd>
-					</div>
-				</dl>
+				@components.Totals(view.Cart.Subtotal, view.Cart.Shipping, view.Cart.Total)
 				<a href="/cart" class="mt-5 block text-xs uppercase tracking-ornament text-ink-muted underline decoration-gold underline-offset-4 transition-colors duration-200 ease-soft hover:text-gold">edit cart</a>
 			</div>
 		</aside>

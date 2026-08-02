@@ -238,31 +238,15 @@ func Checkout(view CheckoutView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</ul><dl class=\"mt-4 space-y-1 text-sm\"><div class=\"flex justify-between\"><dt class=\"text-ink-muted\">Subtotal</dt><dd>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</ul>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = components.Money(view.Cart.Subtotal).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Totals(view.Cart.Subtotal, view.Cart.Shipping, view.Cart.Total).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-ink-muted\">Shipping</dt><dd>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = components.Money(view.Cart.Shipping).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</dd></div><div class=\"mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold\"><dt>Total</dt><dd>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = components.Money(view.Cart.Total).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</dd></div></dl><a href=\"/cart\" class=\"mt-5 block text-xs uppercase tracking-ornament text-ink-muted underline decoration-gold underline-offset-4 transition-colors duration-200 ease-soft hover:text-gold\">edit cart</a></div></aside></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<a href=\"/cart\" class=\"mt-5 block text-xs uppercase tracking-ornament text-ink-muted underline decoration-gold underline-offset-4 transition-colors duration-200 ease-soft hover:text-gold\">edit cart</a></div></aside></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

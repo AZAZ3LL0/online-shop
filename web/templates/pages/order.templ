@@ -51,26 +51,7 @@ templ OrderStatus(view OrderView) {
 					</li>
 				}
 			</ul>
-			<dl class="mt-4 space-y-1 text-sm">
-				<div class="flex justify-between">
-					<dt class="text-ink-muted">Subtotal</dt>
-					<dd>
-						@components.Money(view.Order.Subtotal)
-					</dd>
-				</div>
-				<div class="flex justify-between">
-					<dt class="text-ink-muted">Shipping</dt>
-					<dd>
-						@components.Money(view.Order.Shipping)
-					</dd>
-				</div>
-				<div class="mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold">
-					<dt>Total</dt>
-					<dd>
-						@components.Money(view.Order.Total)
-					</dd>
-				</div>
-			</dl>
+			@components.Totals(view.Order.Subtotal, view.Order.Shipping, view.Order.Total)
 		</div>
 		<p class="mt-6 text-xs text-ink-muted">Keep this link: it is the only way back to this page.</p>
 	</div>
