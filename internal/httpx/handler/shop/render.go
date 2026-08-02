@@ -14,8 +14,28 @@ import (
 	"github.com/qzq-kiim/shop/internal/domain/catalog"
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
 	"github.com/qzq-kiim/shop/web/templates"
+	"github.com/qzq-kiim/shop/web/templates/components"
 	"github.com/qzq-kiim/shop/web/templates/pages"
 )
+
+// The wording a rejected request gets. Both causes the CSRF layer refuses for -
+// a token that no longer matches and a request that came from another address -
+// are fixed by the same action, so the visitor is told that and nothing about
+// which check failed (tech.md §9.13).
+const (
+	forbiddenTitle = "This page has expired"
+	forbiddenHint  = "Reload the page and try again."
+)
+
+// headerRequestedWith marks the calls web/static/js/cart.js makes with fetch and
+// swaps into a node, as opposed to a form submit that navigates.
+const headerRequestedWith = "X-Requested-With"
+
+// isFragmentRequest reports whether the answer will be swapped into a node
+// rather than shown as a page.
+func isFragmentRequest(r *http.Request) bool {
+	return r.Header.Get(headerRequestedWith) == "fetch"
+}
 
 // cartID reads the cart the browser carries in its signed cookie. A missing or
 // tampered cookie is simply "no cart yet", never an error: a stale cookie must
@@ -134,6 +154,28 @@ func (h *Handler) fragmentFailure(w http.ResponseWriter, r *http.Request, cartID
 // the slug never existed or the model was taken off sale.
 func (h *Handler) notFound(w http.ResponseWriter, r *http.Request) {
 	h.errorPage(w, r, http.StatusNotFound, "Not found", "This page is not on sale, or it never was.")
+}
+
+// Forbidden answers a request the CSRF layer turned down. The cart posts with
+// fetch and swaps the answer into a node, so it gets an alert rather than a
+// whole page; a plain form submit navigates and gets the error page.
+func (h *Handler) Forbidden(w http.ResponseWriter, r *http.Request) {
+	h.log.Warn("request rejected by the csrf layer",
+		slog.String("request_id", reqctx.RequestID(r.Context())),
+		slog.String("path", r.URL.Path))
+
+	if isFragmentRequest(r) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		body := components.Alert(components.ToneDanger, forbiddenHint)
+		if err := body.Render(r.Context(), w); err != nil {
+			h.log.Error("render rejection fragment failed",
+				slog.String("request_id", reqctx.RequestID(r.Context())),
+				slog.String("error", err.Error()))
+		}
+		return
+	}
+	h.errorPage(w, r, http.StatusForbidden, forbiddenTitle, forbiddenHint)
 }
 
 // errorPage renders the storefront error body inside the normal layout.

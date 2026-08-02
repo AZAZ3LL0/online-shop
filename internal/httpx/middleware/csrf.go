@@ -32,7 +32,12 @@ const maxFormBytes = 1 << 20
 // CSRF implements double submit cookie plus an Origin check, tech.md §9.3.
 // Webhooks are excluded: they carry HMAC signatures instead and never see a
 // browser cookie.
-func CSRF(signer *cookies.Signer, baseURL string, exempt ...string) Middleware {
+//
+// deny answers a rejected request. It is injected rather than written here so
+// that this layer stays free of templates: a refusal is the one 4xx a visitor
+// meets without having done anything wrong, and a bare "forbidden" reads as a
+// broken site rather than as a page that has to be reloaded.
+func CSRF(signer *cookies.Signer, baseURL string, deny http.HandlerFunc, exempt ...string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, ok := signer.Get(r, CookieCSRF)
@@ -47,12 +52,8 @@ func CSRF(signer *cookies.Signer, baseURL string, exempt ...string) Middleware {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if !sameOrigin(r, baseURL) {
-				http.Error(w, "forbidden", http.StatusForbidden)
-				return
-			}
-			if !validToken(r, token) {
-				http.Error(w, "forbidden", http.StatusForbidden)
+			if !sameOrigin(r, baseURL) || !validToken(r, token) {
+				deny(w, r)
 				return
 			}
 			next.ServeHTTP(w, r)

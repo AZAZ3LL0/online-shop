@@ -23,7 +23,15 @@ import (
 	"github.com/qzq-kiim/shop/internal/httpx/reqctx"
 	"github.com/qzq-kiim/shop/internal/storage/postgres"
 	"github.com/qzq-kiim/shop/web/templates"
+	"github.com/qzq-kiim/shop/web/templates/components"
 	"github.com/qzq-kiim/shop/web/templates/pages"
+)
+
+// The wording a rejected panel request gets. It says what to do and nothing
+// about which of the two CSRF checks failed (tech.md §9.13).
+const (
+	forbiddenTitle = "This page has expired"
+	forbiddenHint  = "Reload the panel and repeat the action."
 )
 
 // sessionTTL is the browser admin session lifetime, tech.md §8.5.
@@ -209,6 +217,18 @@ func (h *Handler) renderPageStatus(w http.ResponseWriter, r *http.Request, statu
 		return
 	}
 	h.renderBody(w, r, templates.AdminWeb(page).Render, body)
+}
+
+// Forbidden answers a panel request the CSRF layer turned down. It keeps the
+// admin chrome, because the operator is signed in and the action simply has to
+// be repeated on a freshly loaded page; the layout follows the mount point, so
+// the Mini App stays inside the Mini App.
+func (h *Handler) Forbidden(w http.ResponseWriter, r *http.Request) {
+	h.log.Warn("panel request rejected by the csrf layer",
+		slog.String("request_id", reqctx.RequestID(r.Context())),
+		slog.String("path", r.URL.Path))
+	h.renderPageStatus(w, r, http.StatusForbidden, forbiddenTitle, "",
+		components.EmptyState(forbiddenTitle, forbiddenHint))
 }
 
 // fail logs the cause and answers with a generic message, tech.md §9.13.
