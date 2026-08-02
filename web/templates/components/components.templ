@@ -7,6 +7,41 @@ import (
 	"github.com/qzq-kiim/shop/internal/money"
 )
 
+// Ornament draws one of the Kazakh motifs of tech.md §19.4. Every kind is
+// decoration: it is hidden from assistive technology and never carries meaning
+// that is not also in the text next to it.
+templ Ornament(kind OrnamentKind) {
+	switch kind {
+		case OrnamentBand:
+			<div class="k-band w-full" aria-hidden="true"></div>
+		case OrnamentRosette:
+			<svg
+				class="h-10 w-10 text-gold"
+				viewBox="0 0 80 80"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				aria-hidden="true"
+				focusable="false"
+			>
+				<path d="M40 37C40 24 31 16 23 20c-7 4-6 14 2 14"></path>
+				<path d="M40 37c0-13 9-21 17-17 7 4 6 14-2 14"></path>
+				<path d="M40 43c0 13-9 21-17 17-7-4-6-14 2-14"></path>
+				<path d="M40 43c0 13 9 21 17 17 7-4 6-14-2-14"></path>
+				<path d="M40 33l7 7-7 7-7-7z"></path>
+			</svg>
+		default:
+			<div class="k-rule flex items-center gap-3 text-gold" aria-hidden="true">
+				<span class="h-px flex-1 bg-current opacity-40"></span>
+				<svg class="h-2 w-2" viewBox="0 0 8 8" fill="currentColor" focusable="false">
+					<path d="M4 0l4 4-4 4-4-4z"></path>
+				</svg>
+				<span class="h-px flex-1 bg-current opacity-40"></span>
+			</div>
+	}
+}
+
 templ Button(variant ButtonVariant, label string, attrs templ.Attributes) {
 	<button class={ buttonClasses(variant) } { attrs... }>{ label }</button>
 }
@@ -17,22 +52,25 @@ templ Badge(text string, tone Tone) {
 	</span>
 }
 
+// Card is the catalogue tile. The photo sits on a light plate: half the
+// collection is a black tee, which would disappear into the storefront's dark
+// field (tech.md §19.3).
 templ Card(imageFront, imageBack, href, title string, price money.Amount) {
 	<article class="group relative" x-data="{ flipped: false }">
 		<a href={ templ.SafeURL(href) } class="block">
-			<div class="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+			<div class="relative aspect-[4/5] overflow-hidden border border-hair bg-plate transition duration-500 ease-soft group-hover:border-gold">
 				<img
 					src={ imageFront }
 					alt={ title }
 					loading="lazy"
-					class="absolute inset-0 h-full w-full object-contain transition-opacity duration-300 group-hover:opacity-0"
+					class="absolute inset-0 h-full w-full object-contain transition-all duration-500 ease-soft group-hover:scale-[1.03] group-hover:opacity-0"
 					x-bind:class="flipped ? 'opacity-0' : 'opacity-100'"
 				/>
 				<img
 					src={ imageBack }
 					alt={ title + " back" }
 					loading="lazy"
-					class="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+					class="absolute inset-0 h-full w-full object-contain opacity-0 transition-all duration-500 ease-soft group-hover:scale-[1.03] group-hover:opacity-100"
 					x-bind:class="flipped ? 'opacity-100' : 'opacity-0'"
 				/>
 			</div>
@@ -40,11 +78,11 @@ templ Card(imageFront, imageBack, href, title string, price money.Amount) {
 		<button
 			type="button"
 			x-on:click="flipped = !flipped"
-			class="absolute right-2 top-2 border border-neutral-300 bg-white/90 px-2 py-1 text-xs uppercase tracking-wide [@media(hover:hover)]:hidden"
+			class="absolute right-2 top-2 border border-hair-strong bg-surface/90 px-2 py-1 text-xs uppercase tracking-wide text-ink [@media(hover:hover)]:hidden"
 			aria-label="Flip view"
 		>flip</button>
 		<div class="mt-3 flex items-baseline justify-between gap-3">
-			<a href={ templ.SafeURL(href) } class="text-sm font-medium">{ title }</a>
+			<a href={ templ.SafeURL(href) } class="font-display text-base tracking-wide transition-colors duration-200 ease-soft group-hover:text-gold">{ title }</a>
 			@Money(price)
 		</div>
 	</article>
@@ -52,7 +90,7 @@ templ Card(imageFront, imageBack, href, title string, price money.Amount) {
 
 templ Input(name, label, value string, kind string, err string) {
 	<label class="block">
-		<span class="mb-1 block text-xs uppercase tracking-wide text-neutral-500">{ label }</span>
+		<span class="mb-1 block text-xs uppercase tracking-ornament text-ink-muted">{ label }</span>
 		<input
 			type={ kind }
 			name={ name }
@@ -61,14 +99,14 @@ templ Input(name, label, value string, kind string, err string) {
 			class={ inputClasses(err != "") }
 		/>
 		if err != "" {
-			<span class="mt-1 block text-xs text-rose-600">{ err }</span>
+			<span class="mt-1 block text-xs text-danger-ink">{ err }</span>
 		}
 	</label>
 }
 
 templ Select(name, label string, options []Option, selected string) {
 	<label class="block">
-		<span class="mb-1 block text-xs uppercase tracking-wide text-neutral-500">{ label }</span>
+		<span class="mb-1 block text-xs uppercase tracking-ornament text-ink-muted">{ label }</span>
 		<select name={ name } id={ "field-" + name } class={ inputClasses(false) }>
 			for _, o := range options {
 				<option
@@ -89,7 +127,7 @@ templ Select(name, label string, options []Option, selected string) {
 
 templ Textarea(name, label, value string, maxRunes int) {
 	<label class="block" x-data={ textareaState(value, maxRunes) }>
-		<span class="mb-1 block text-xs uppercase tracking-wide text-neutral-500">{ label }</span>
+		<span class="mb-1 block text-xs uppercase tracking-ornament text-ink-muted">{ label }</span>
 		<textarea
 			name={ name }
 			id={ "field-" + name }
@@ -98,7 +136,7 @@ templ Textarea(name, label, value string, maxRunes int) {
 			class={ inputClasses(false) }
 			x-model="text"
 		>{ value }</textarea>
-		<span class="mt-1 block text-right text-xs text-neutral-400" x-text="[...text].length + '/' + max">
+		<span class="mt-1 block text-right text-xs text-ink-faint" x-text="[...text].length + '/' + max">
 			{ counterLabel(len([]rune(value)), maxRunes) }
 		</span>
 	</label>
@@ -111,17 +149,17 @@ templ Modal(id, title string, body templ.Component) {
 		x-on:open-modal.window="if ($event.detail === $el.id) open = true"
 		x-on:keydown.escape.window="open = false"
 	>
-		<div x-show="open" x-cloak class="fixed inset-0 z-40 bg-black/40" x-on:click="open = false"></div>
+		<div x-show="open" x-cloak class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" x-on:click="open = false"></div>
 		<div
 			x-show="open"
 			x-cloak
 			role="dialog"
 			aria-modal="true"
-			class="fixed inset-x-4 top-24 z-50 mx-auto max-w-lg border border-neutral-200 bg-white p-6"
+			class="fixed inset-x-4 top-24 z-50 mx-auto max-w-lg border border-hair bg-surface p-6 shadow-2xl shadow-black/40"
 		>
 			<div class="mb-4 flex items-start justify-between gap-4">
-				<h2 class="text-lg font-medium">{ title }</h2>
-				<button type="button" class="text-neutral-400 hover:text-neutral-900" x-on:click="open = false" aria-label="Close">x</button>
+				<h2 class="font-display text-lg tracking-wide">{ title }</h2>
+				<button type="button" class="text-ink-faint transition-colors duration-200 ease-soft hover:text-ink" x-on:click="open = false" aria-label="Close">x</button>
 			</div>
 			@body
 		</div>
@@ -132,7 +170,7 @@ templ Table(headers []string, rows []templ.Component) {
 	<div class="w-full overflow-x-auto">
 		<table class="w-full border-collapse text-sm">
 			<thead>
-				<tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
+				<tr class="border-b border-hair-strong text-left text-xs uppercase tracking-ornament text-ink-muted">
 					for _, h := range headers {
 						<th scope="col" class="px-3 py-2 font-medium">{ h }</th>
 					}
@@ -140,7 +178,7 @@ templ Table(headers []string, rows []templ.Component) {
 			</thead>
 			<tbody>
 				for _, row := range rows {
-					<tr class="border-b border-neutral-100">
+					<tr class="border-b border-hair/60">
 						@row
 					</tr>
 				}
@@ -162,9 +200,9 @@ templ StatusPill(status order.Status) {
 }
 
 templ EmptyState(title, hint string) {
-	<div class="border border-dashed border-neutral-300 px-6 py-12 text-center">
-		<p class="text-sm font-medium text-neutral-900">{ title }</p>
-		<p class="mt-1 text-sm text-neutral-500">{ hint }</p>
+	<div class="border border-dashed border-hair-strong px-6 py-12 text-center">
+		<p class="font-display text-base tracking-wide text-ink">{ title }</p>
+		<p class="mt-1 text-sm text-ink-muted">{ hint }</p>
 	</div>
 }
 
@@ -172,25 +210,25 @@ templ Pagination(page, totalPages int, baseURL string) {
 	if totalPages > 1 {
 		<nav class="flex items-center gap-1 text-sm" aria-label="Pagination">
 			if page > 1 {
-				<a href={ templ.SafeURL(pageURL(baseURL, page-1)) } class="border border-neutral-200 px-3 py-1">prev</a>
+				<a href={ templ.SafeURL(pageURL(baseURL, page-1)) } class="border border-hair px-3 py-1 transition-colors duration-200 ease-soft hover:border-gold hover:text-gold">prev</a>
 			}
 			for _, p := range pageRange(page, totalPages) {
 				if p == page {
-					<span aria-current="page" class="border border-neutral-900 bg-neutral-900 px-3 py-1 text-white">{ strconv.Itoa(p) }</span>
+					<span aria-current="page" class="border border-accent bg-accent px-3 py-1 text-accent-fg">{ strconv.Itoa(p) }</span>
 				} else {
-					<a href={ templ.SafeURL(pageURL(baseURL, p)) } class="border border-neutral-200 px-3 py-1">{ strconv.Itoa(p) }</a>
+					<a href={ templ.SafeURL(pageURL(baseURL, p)) } class="border border-hair px-3 py-1 transition-colors duration-200 ease-soft hover:border-gold hover:text-gold">{ strconv.Itoa(p) }</a>
 				}
 			}
 			if page < totalPages {
-				<a href={ templ.SafeURL(pageURL(baseURL, page+1)) } class="border border-neutral-200 px-3 py-1">next</a>
+				<a href={ templ.SafeURL(pageURL(baseURL, page+1)) } class="border border-hair px-3 py-1 transition-colors duration-200 ease-soft hover:border-gold hover:text-gold">next</a>
 			}
 		</nav>
 	}
 }
 
 templ StatCard(label string, value string, delta string, tone Tone) {
-	<div class="border border-neutral-200 p-4">
-		<p class="text-xs uppercase tracking-wide text-neutral-500">{ label }</p>
+	<div class="border border-hair bg-surface p-4">
+		<p class="text-xs uppercase tracking-ornament text-ink-muted">{ label }</p>
 		<p class="mt-2 text-2xl font-medium tabular-nums">{ value }</p>
 		if delta != "" {
 			<p class="mt-1">
@@ -213,7 +251,7 @@ templ Toast(id string, tone Tone, message string) {
 		x-show="open"
 		x-cloak
 		x-init="setTimeout(() => open = false, 4000)"
-		class={ "fixed bottom-4 right-4 z-50 border px-4 py-3 text-sm shadow-sm", toneClasses(tone) }
+		class={ "fixed bottom-4 right-4 z-50 animate-rise border px-4 py-3 text-sm shadow-lg shadow-black/30", toneClasses(tone) }
 		role="status"
 	>
 		<span>{ message }</span>

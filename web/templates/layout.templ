@@ -1,6 +1,10 @@
 package templates
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/qzq-kiim/shop/web/templates/components"
+)
 
 templ head(p Page) {
 	<head>
@@ -14,35 +18,66 @@ templ head(p Page) {
 	</head>
 }
 
-// Shop is the storefront layout: header, cart link, content, footer.
+// ribbon is the scrolling slogan under the header, tech.md §19.6. The track
+// carries the line four times so two of them always outrun the widest viewport:
+// the animation shifts the track by exactly half its width, so the loop has no
+// seam. Only the first copy is readable to assistive technology - the rest are
+// the same words again and would be read four times over.
+templ ribbon() {
+	<div class="k-marquee border-y border-hair bg-bg-deep">
+		<div class="k-marquee-track animate-marquee py-2">
+			<span class="whitespace-nowrap px-6 text-[0.65rem] uppercase tracking-ornament text-gold">{ Slogan }</span>
+			for range 3 {
+				<span aria-hidden="true" class="whitespace-nowrap px-6 text-[0.65rem] uppercase tracking-ornament text-gold">{ Slogan }</span>
+			}
+		</div>
+	</div>
+}
+
+// Shop is the storefront layout: header, cart link, content, footer. It is the
+// one place the .shop scope is opened, which is what turns every token of
+// tech.md §19.2 from the neutral admin palette into the carpet one.
 templ Shop(p Page) {
 	<!DOCTYPE html>
 	<html lang="en" class="h-full">
 		@head(p)
-		<body class="flex min-h-full flex-col">
-			<header class="border-b border-neutral-200">
+		<body class="shop flex min-h-full flex-col bg-bg text-ink">
+			<div class="h-px w-full bg-gradient-to-r from-transparent via-gold to-transparent"></div>
+			<header class="sticky top-0 z-30 border-b border-hair bg-bg-deep/95 backdrop-blur">
 				<nav class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4" aria-label="Main">
-					<a href="/" class="text-lg font-semibold tracking-tight">QZQ</a>
-					<div class="flex items-center gap-6 text-sm">
-						<a href="/" class="hover:underline">Shop</a>
-						<a href="/cart" class="hover:underline" id="cart-link">
+					<a href="/" class="group flex items-center gap-3">
+						<span class="text-gold transition-transform duration-500 ease-soft group-hover:rotate-45">
+							@components.Ornament(components.OrnamentRosette)
+						</span>
+						<span class="font-display text-xl tracking-[0.2em]">QZQ</span>
+					</a>
+					<div class="flex items-center gap-7 text-xs uppercase tracking-ornament">
+						<a href="/" class="transition-colors duration-200 ease-soft hover:text-gold">Shop</a>
+						<a href="/cart" class="flex items-center gap-2 transition-colors duration-200 ease-soft hover:text-gold" id="cart-link">
 							Cart
 							if p.CartCount > 0 {
-								<span class="ml-1 tabular-nums">({ strconv.Itoa(p.CartCount) })</span>
+								<span class="inline-flex min-w-5 justify-center border border-gold px-1 py-0.5 text-[0.6rem] tabular-nums text-gold">
+									{ strconv.Itoa(p.CartCount) }
+								</span>
 							}
 						</a>
 					</div>
 				</nav>
 			</header>
-			<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
+			@ribbon()
+			<main class="k-field mx-auto w-full max-w-6xl flex-1 px-4 py-12">
 				{ children... }
 			</main>
-			<footer class="border-t border-neutral-200">
-				<div class="mx-auto w-full max-w-6xl px-4 py-6 text-xs text-neutral-500">
-					<span>Order status is available in the Telegram bot.</span>
-					if p.IsDev {
-						<a href="/dev/kitchen-sink" class="ml-4 underline">kitchen sink</a>
-					}
+			<footer class="border-t border-hair bg-bg-deep">
+				@components.Ornament(components.OrnamentBand)
+				<div class="mx-auto w-full max-w-6xl px-4 pb-8 pt-6">
+					<p class="font-display text-sm tracking-[0.18em] text-gold">{ Slogan }</p>
+					<p class="mt-4 text-xs text-ink-muted">
+						Order status is available in the Telegram bot.
+						if p.IsDev {
+							<a href="/dev/kitchen-sink" class="ml-4 underline decoration-gold underline-offset-4">kitchen sink</a>
+						}
+					</p>
 				</div>
 			</footer>
 		</body>
@@ -69,13 +104,16 @@ templ AdminMini(p Page) {
 			<header class="admin-mini-bar border-b">
 				<nav class="flex items-center justify-between gap-3 px-3 py-2 text-sm" aria-label="Admin">
 					<div class="flex items-center gap-3">
-						<a href="/tgapp/" class="font-semibold">QZQ</a>
+						<a href="/tgapp/" class="font-display tracking-[0.18em]">QZQ</a>
 						<a href="/tgapp/analytics" class="underline">analytics</a>
 					</div>
 					if p.AdminUser != "" {
 						<span class="admin-mini-hint truncate">{ p.AdminUser }</span>
 					}
 				</nav>
+				// The panel is coloured by Telegram (tech.md §19.1), so the Kazakh
+				// layer lends it the hairline only - it reads on any theme.
+				@components.Ornament(components.OrnamentRule)
 			</header>
 			<main class="w-full flex-1 px-3 py-4">
 				{ children... }

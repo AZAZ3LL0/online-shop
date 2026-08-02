@@ -12,8 +12,8 @@ import (
 templ OrderStatus(view OrderView) {
 	<script defer src="/static/js/order.js"></script>
 	<div class="max-w-2xl" x-data={ orderState(view) }>
-		<p class="text-xs uppercase tracking-wide text-neutral-500">Order</p>
-		<h1 class="mb-4 text-3xl font-semibold tracking-tight">{ view.Order.Number }</h1>
+		<p class="text-xs uppercase tracking-ornament text-ink-muted">Order</p>
+		<h1 class="mb-4 font-display text-4xl tracking-tight">{ view.Order.Number }</h1>
 		<div class="mb-6">
 			@components.StatusPill(view.Order.Status)
 		</div>
@@ -22,7 +22,7 @@ templ OrderStatus(view OrderView) {
 				<p class="mb-2 text-sm" x-show="remaining > 0" x-cloak>
 					Reservation ends in <span class="tabular-nums" x-text="countdown"></span>.
 				</p>
-				<a href={ templ.SafeURL(view.Order.InvoiceURL) } class="inline-block bg-neutral-900 px-5 py-3 text-sm text-white">
+				<a href={ templ.SafeURL(view.Order.InvoiceURL) } class="inline-block bg-accent px-5 py-3 text-sm font-medium uppercase tracking-ornament text-accent-fg transition-opacity duration-200 ease-soft hover:opacity-90">
 					Continue to payment
 				</a>
 			</div>
@@ -38,14 +38,14 @@ templ OrderStatus(view OrderView) {
 			</div>
 		}
 		@TrackInTelegram(view.Track)
-		<div class="border border-neutral-200 p-4">
-			<h2 class="mb-4 text-sm font-medium uppercase tracking-wide">Items</h2>
-			<ul class="divide-y divide-neutral-100">
+		<div class="border border-hair bg-surface p-5">
+			<h2 class="mb-4 text-xs font-medium uppercase tracking-ornament text-ink-muted">Items</h2>
+			<ul class="divide-y divide-hair/60">
 				for _, item := range view.Order.Items {
 					<li class="flex items-baseline justify-between gap-3 py-2 text-sm">
 						<span>
 							{ item.ProductTitle } / { item.Size }
-							<span class="text-neutral-500">x { strconv.Itoa(item.Qty) }</span>
+							<span class="text-ink-faint">x { strconv.Itoa(item.Qty) }</span>
 						</span>
 						@components.Money(item.LineTotal())
 					</li>
@@ -53,18 +53,18 @@ templ OrderStatus(view OrderView) {
 			</ul>
 			<dl class="mt-4 space-y-1 text-sm">
 				<div class="flex justify-between">
-					<dt class="text-neutral-500">Subtotal</dt>
+					<dt class="text-ink-muted">Subtotal</dt>
 					<dd>
 						@components.Money(view.Order.Subtotal)
 					</dd>
 				</div>
 				<div class="flex justify-between">
-					<dt class="text-neutral-500">Shipping</dt>
+					<dt class="text-ink-muted">Shipping</dt>
 					<dd>
 						@components.Money(view.Order.Shipping)
 					</dd>
 				</div>
-				<div class="flex justify-between border-t border-neutral-200 pt-2 font-medium">
+				<div class="mt-2 flex justify-between border-t border-hair pt-3 font-medium text-gold">
 					<dt>Total</dt>
 					<dd>
 						@components.Money(view.Order.Total)
@@ -72,6 +72,6 @@ templ OrderStatus(view OrderView) {
 				</div>
 			</dl>
 		</div>
-		<p class="mt-6 text-xs text-neutral-500">Keep this link: it is the only way back to this page.</p>
+		<p class="mt-6 text-xs text-ink-muted">Keep this link: it is the only way back to this page.</p>
 	</div>
 }

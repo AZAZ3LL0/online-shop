@@ -33,6 +33,20 @@ const (
 	ButtonDanger    ButtonVariant = "danger"
 )
 
+// OrnamentKind is the closed set of Kazakh ornaments the UI draws (tech.md
+// §19.4). They are decoration only: nothing is ever said by an ornament alone.
+type OrnamentKind string
+
+// Ornaments.
+const (
+	// OrnamentBand is the horizontal ram's-horn ribbon used as a divider.
+	OrnamentBand OrnamentKind = "band"
+	// OrnamentRosette is the single qoshqar muyiz rosette used as an accent.
+	OrnamentRosette OrnamentKind = "rosette"
+	// OrnamentRule is the thin gold hairline with a diamond in the middle.
+	OrnamentRule OrnamentKind = "rule"
+)
+
 // Option is one entry of a Select.
 type Option struct {
 	Value    string
@@ -41,31 +55,35 @@ type Option struct {
 	Disabled bool
 }
 
+// Colours are named by token, never literally: the same class renders light in
+// the browser admin and dark on the storefront, because the scope on <body>
+// decides what the token means (tech.md §19.2).
 func toneClasses(t Tone) string {
 	switch t {
 	case ToneSuccess:
-		return "bg-emerald-50 text-emerald-800 border-emerald-200"
+		return "bg-success-bg text-success-ink border-success-hair"
 	case ToneWarning:
-		return "bg-amber-50 text-amber-900 border-amber-200"
+		return "bg-warning-bg text-warning-ink border-warning-hair"
 	case ToneDanger:
-		return "bg-rose-50 text-rose-800 border-rose-200"
+		return "bg-danger-bg text-danger-ink border-danger-hair"
 	default:
-		return "bg-neutral-100 text-neutral-800 border-neutral-200"
+		return "bg-surface-2 text-ink border-hair"
 	}
 }
 
 func buttonClasses(v ButtonVariant) string {
 	base := "inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium " +
-		"tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+		"tracking-wide transition-colors duration-200 ease-soft " +
+		"disabled:cursor-not-allowed disabled:opacity-40"
 	switch v {
 	case ButtonSecondary:
-		return base + " border border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
+		return base + " border border-accent text-accent hover:bg-accent hover:text-accent-fg"
 	case ButtonGhost:
-		return base + " text-neutral-600 hover:text-neutral-900"
+		return base + " text-ink-muted hover:text-ink"
 	case ButtonDanger:
-		return base + " bg-rose-600 text-white hover:bg-rose-700"
+		return base + " bg-danger-solid text-danger-solid-fg hover:opacity-90"
 	default:
-		return base + " bg-neutral-900 text-white hover:bg-neutral-700"
+		return base + " bg-accent text-accent-fg hover:opacity-90"
 	}
 }
 
@@ -84,11 +102,12 @@ func StatusTone(s order.Status) Tone {
 }
 
 func inputClasses(hasError bool) string {
-	base := "w-full border px-3 py-2 text-sm outline-none focus:border-neutral-900"
+	base := "w-full border bg-surface px-3 py-2 text-sm text-ink outline-none " +
+		"transition-colors duration-200 ease-soft placeholder:text-ink-faint focus:border-accent"
 	if hasError {
-		return base + " border-rose-400"
+		return base + " border-danger-edge"
 	}
-	return base + " border-neutral-300"
+	return base + " border-hair-strong"
 }
 
 // pageURL appends the page number to a base URL without breaking its query.

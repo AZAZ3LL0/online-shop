@@ -6,10 +6,10 @@ import "github.com/qzq-kiim/shop/web/templates/components"
 // rendered through it, so the wording is defined once and never leaks whether
 // the thing that was asked for exists.
 templ ErrorPage(title, hint string) {
-	<div class="mx-auto max-w-md">
+	<div class="mx-auto max-w-md py-10">
 		@components.EmptyState(title, hint)
 		<p class="mt-6 text-center">
-			<a href="/" class="text-sm underline">Back to the shop</a>
+			<a href="/" class="text-xs uppercase tracking-ornament underline decoration-gold underline-offset-4 transition-colors duration-200 ease-soft hover:text-gold">Back to the shop</a>
 		</p>
 	</div>
 }

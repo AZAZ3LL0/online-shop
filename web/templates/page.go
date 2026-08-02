@@ -7,6 +7,11 @@ import (
 	"github.com/qzq-kiim/shop/internal/telegram"
 )
 
+// Slogan is the brand line of the shop, tech.md §19.6. It is written down once:
+// the ribbon under the header and the footer both render this constant, and
+// there is no second copy of the string anywhere in the project.
+const Slogan = "qzq.kiim · КЕЛ, ШАЙ ІШЕМІЗ · ЧӘЙ · СӘЙ · ÇAY · ЧАЙ · ШАЙ · СAЙ · ЧАИ · ČAI · ЦӘ"
+
 // Admin sections: the keys the layout highlights its navigation by.
 const (
 	SectionDashboard = "dashboard"

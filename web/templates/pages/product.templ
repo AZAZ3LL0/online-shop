@@ -8,7 +8,7 @@ import "github.com/qzq-kiim/shop/web/templates/components"
 templ Product(view ProductView) {
 	<div class="grid gap-10 lg:grid-cols-[3fr_2fr]" x-data="cart">
 		<div x-data="{ back: false }">
-			<div class="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+			<div class="relative aspect-[4/5] overflow-hidden border border-hair bg-plate">
 				<img
 					src={ view.Product.ImageFront }
 					alt={ view.Product.Title }
@@ -34,12 +34,12 @@ templ Product(view ProductView) {
 			</div>
 		</div>
 		<div>
-			<h1 class="text-3xl font-semibold tracking-tight">{ view.Product.Title }</h1>
-			<p class="mt-2 text-lg">
+			<h1 class="font-display text-4xl tracking-tight">{ view.Product.Title }</h1>
+			<p class="mt-3 text-lg text-gold">
 				@components.Money(view.Product.Price)
 			</p>
-			<p class="mt-4 text-sm leading-relaxed text-neutral-600">{ view.Product.Description }</p>
-			<h2 class="mb-2 mt-8 text-xs font-medium uppercase tracking-wide text-neutral-500">Size run</h2>
+			<p class="mt-5 max-w-prose text-sm leading-relaxed text-ink-muted">{ view.Product.Description }</p>
+			<h2 class="mb-3 mt-9 text-xs font-medium uppercase tracking-ornament text-ink-muted">Size run</h2>
 			@components.Table([]string{"Size", "Availability"}, sizeRows(view.Product))
 			if inStock(view.Product) {
 				<form
