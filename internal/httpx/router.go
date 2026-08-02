@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/qzq-kiim/shop/internal/config"
 	"github.com/qzq-kiim/shop/internal/domain/analytics"
@@ -163,7 +164,7 @@ func NewRouter(d Deps) http.Handler {
 		middleware.Recover(d.Log),
 		middleware.Logging(d.Log),
 		middleware.SecurityHeaders(!d.Config.IsDev()),
-		middleware.CSRF(d.Signer, d.Config.BaseURL, "/webhooks/"),
+		middleware.CSRF(d.Signer, d.Config.BaseURL, denyCSRF(shopHandler, adminHandler), "/webhooks/"),
 		middleware.Attribution(d.Analytics, d.Signer, d.Log, "/healthz", "/dev/", "/admin", "/tgapp"),
 		middleware.RateLimit(d.Limiter),
 	)
@@ -181,6 +182,18 @@ func NewRouter(d Deps) http.Handler {
 	root.Handle("/static/", static)
 	root.Handle("/", app)
 	return root
+}
+
+// denyCSRF picks who explains a rejected request: the panel keeps its own
+// chrome, everything else is a storefront page.
+func denyCSRF(shopHandler *shop.Handler, adminHandler *admin.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/admin") || strings.HasPrefix(r.URL.Path, admin.MiniPrefix) {
+			adminHandler.Forbidden(w, r)
+			return
+		}
+		shopHandler.Forbidden(w, r)
+	}
 }
 
 func staticFileServer() http.Handler {
