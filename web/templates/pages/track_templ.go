@@ -34,7 +34,7 @@ func TrackInTelegram(entry TrackEntry) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if entry.Offered() {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mb-6 border border-neutral-200 p-4\"><h2 class=\"mb-1 text-sm font-medium uppercase tracking-wide\">Track in Telegram</h2><p class=\"mb-4 text-xs text-neutral-500\">Open the bot to get every status change of this order as a message.</p><div class=\"flex flex-wrap items-center gap-5\"><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"mb-6 border border-hair bg-surface p-5\"><h2 class=\"mb-1 text-xs font-medium uppercase tracking-ornament text-ink-muted\">Track in Telegram</h2><p class=\"mb-4 text-xs text-ink-muted\">Open the bot to get every status change of this order as a message.</p><div class=\"flex flex-wrap items-center gap-5\"><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -47,7 +47,7 @@ func TrackInTelegram(entry TrackEntry) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" rel=\"noopener\" class=\"inline-block bg-neutral-900 px-5 py-3 text-sm text-white\">Track order in Telegram</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" rel=\"noopener\" class=\"inline-block bg-accent px-5 py-3 text-sm font-medium uppercase tracking-ornament text-accent-fg transition-opacity duration-200 ease-soft hover:opacity-90\">Track order in Telegram</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -65,7 +65,7 @@ func TrackInTelegram(entry TrackEntry) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" alt=\"QR code opening this order in the Telegram bot\" width=\"128\" height=\"128\" class=\"h-32 w-32\"><figcaption class=\"mt-1 text-xs text-neutral-500\">or scan from your phone</figcaption></figure>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" alt=\"QR code opening this order in the Telegram bot\" width=\"128\" height=\"128\" class=\"h-32 w-32 border border-hair bg-plate p-1\"><figcaption class=\"mt-2 text-xs text-ink-faint\">or scan from your phone</figcaption></figure>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

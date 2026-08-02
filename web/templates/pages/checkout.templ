@@ -10,7 +10,7 @@ import (
 // Checkout is the last screen before the invoice: buyer data on the left, the
 // priced cart on the right.
 templ Checkout(view CheckoutView) {
-	<h1 class="mb-8 text-3xl font-semibold tracking-tight">Checkout</h1>
+	<h1 class="mb-8 font-display text-4xl tracking-tight">Checkout</h1>
 	if view.Error != "" {
 		<div class="mb-6 max-w-2xl">
 			@components.Alert(components.ToneDanger, view.Error)
@@ -23,63 +23,44 @@ templ Checkout(view CheckoutView) {
 			@components.Input("contact", "E-mail or Telegram @username", view.Customer.Contact, "text", view.FieldError("contact"))
 			@components.Textarea("address", "Shipping address", view.Customer.Address, order.MaxAddressRunes)
 			if view.FieldError("address") != "" {
-				<span class="-mt-4 block text-xs text-rose-600">{ view.FieldError("address") }</span>
+				<span class="-mt-4 block text-xs text-danger-ink">{ view.FieldError("address") }</span>
 			}
 			@components.Textarea("comment", "Comment (optional)", view.Customer.Comment, order.MaxCommentRunes)
 			if view.FieldError("comment") != "" {
-				<span class="-mt-4 block text-xs text-rose-600">{ view.FieldError("comment") }</span>
+				<span class="-mt-4 block text-xs text-danger-ink">{ view.FieldError("comment") }</span>
 			}
 			// The primitives of tech.md §7.2 have no checkbox, and this is the
 			// only one in the shop, so it is written out here.
 			<label class="flex items-start gap-3 text-sm">
-				<input type="checkbox" name="consent" value="on" checked?={ view.Consent } class="mt-0.5"/>
+				<input type="checkbox" name="consent" value="on" checked?={ view.Consent } class="mt-0.5 accent-gold"/>
 				<span>
 					I agree that my contact and address are used to ship this order.
 					if view.FieldError("consent") != "" {
-						<span class="mt-1 block text-xs text-rose-600">{ view.FieldError("consent") }</span>
+						<span class="mt-1 block text-xs text-danger-ink">{ view.FieldError("consent") }</span>
 					}
 				</span>
 			</label>
 			@components.Button(components.ButtonPrimary, "Pay with crypto", templ.Attributes{"type": "submit"})
-			<p class="text-xs text-neutral-500">
+			<p class="text-xs text-ink-muted">
 				The stock is held for you for { strconv.Itoa(view.ReservationMinutes) } minutes after the order is created.
 			</p>
 		</form>
 		<aside>
-			<div class="border border-neutral-200 p-4">
-				<h2 class="mb-4 text-sm font-medium uppercase tracking-wide">Your order</h2>
-				<ul class="divide-y divide-neutral-100">
+			<div class="border border-hair bg-surface p-5 lg:sticky lg:top-28">
+				<h2 class="mb-4 text-xs font-medium uppercase tracking-ornament text-ink-muted">Your order</h2>
+				<ul class="divide-y divide-hair/60">
 					for _, item := range view.Cart.Cart.Items {
 						<li class="flex items-baseline justify-between gap-3 py-2 text-sm">
 							<span>
 								{ item.ProductTitle } / { item.Size }
-								<span class="text-neutral-500">x { strconv.Itoa(item.Qty) }</span>
+								<span class="text-ink-faint">x { strconv.Itoa(item.Qty) }</span>
 							</span>
 							@components.Money(item.LineTotal())
 						</li>
 					}
 				</ul>
-				<dl class="mt-4 space-y-1 text-sm">
-					<div class="flex justify-between">
-						<dt class="text-neutral-500">Subtotal</dt>
-						<dd>
-							@components.Money(view.Cart.Subtotal)
-						</dd>
-					</div>
-					<div class="flex justify-between">
-						<dt class="text-neutral-500">Shipping</dt>
-						<dd>
-							@components.Money(view.Cart.Shipping)
-						</dd>
-					</div>
-					<div class="flex justify-between border-t border-neutral-200 pt-2 font-medium">
-						<dt>Total</dt>
-						<dd>
-							@components.Money(view.Cart.Total)
-						</dd>
-					</div>
-				</dl>
-				<a href="/cart" class="mt-4 block text-xs uppercase underline">edit cart</a>
+				@components.Totals(view.Cart.Subtotal, view.Cart.Shipping, view.Cart.Total)
+				<a href="/cart" class="mt-5 block text-xs uppercase tracking-ornament text-ink-muted underline decoration-gold underline-offset-4 transition-colors duration-200 ease-soft hover:text-gold">edit cart</a>
 			</div>
 		</aside>
 	</div>

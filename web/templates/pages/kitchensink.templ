@@ -7,7 +7,7 @@ import (
 )
 
 templ sinkSection(title string) {
-	<h2 class="mb-4 mt-12 border-b border-neutral-200 pb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+	<h2 class="mb-4 mt-12 border-b border-hair pb-2 text-xs font-medium uppercase tracking-ornament text-ink-muted">
 		{ title }
 	</h2>
 }
@@ -19,13 +19,13 @@ templ sinkRow(a, b, c string) {
 }
 
 templ sinkModalBody() {
-	<p class="text-sm text-neutral-600">Modal body is an arbitrary component.</p>
+	<p class="text-sm text-ink-muted">Modal body is an arbitrary component.</p>
 }
 
 // KitchenSink renders every primitive of tech.md §7.2 on one page. Dev only.
 templ KitchenSink() {
-	<h1 class="text-3xl font-semibold tracking-tight">Kitchen sink</h1>
-	<p class="mt-2 text-sm text-neutral-500">Every UI primitive, rendered once. Development build only.</p>
+	<h1 class="font-display text-4xl tracking-tight">Kitchen sink</h1>
+	<p class="mt-2 text-sm text-ink-muted">Every UI primitive, rendered once. Development build only.</p>
 	@sinkSection("Button")
 	<div class="flex flex-wrap items-center gap-3">
 		@components.Button(components.ButtonPrimary, "Primary", templ.Attributes{"type": "button"})

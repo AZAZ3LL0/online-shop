@@ -2,12 +2,23 @@ package pages
 
 import "github.com/qzq-kiim/shop/web/templates/components"
 
+// Home is the storefront index. The hero is the one place the ornament is
+// allowed to be loud (tech.md §19.4); below it the pattern drops back so the
+// three photographs carry the page.
 templ Home(view HomeView) {
-	<section class="mb-12 max-w-2xl">
-		<h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">One drop. Three tees.</h1>
-		<p class="mt-4 text-sm text-neutral-600">
-			Heavyweight cotton, printed front and back. Pay with crypto, track the order in Telegram.
-		</p>
+	<section class="k-field k-field-hero relative mb-14 border border-hair bg-indigo/25 px-6 py-14 sm:px-10 sm:py-20">
+		<div class="max-w-2xl">
+			<p class="animate-rise text-xs uppercase tracking-ornament text-gold">Кел, шай ішеміз</p>
+			<h1 class="animate-rise mt-5 font-display text-4xl leading-[1.1] tracking-tight [animation-delay:120ms] sm:text-6xl">
+				One drop.<br/>Three tees.
+			</h1>
+			<p class="animate-rise mt-6 max-w-md text-sm leading-relaxed text-ink-muted [animation-delay:240ms]">
+				Heavyweight cotton, printed front and back. Pay with crypto, track the order in Telegram.
+			</p>
+			<div class="animate-rise mt-8 max-w-xs [animation-delay:360ms]">
+				@components.Ornament(components.OrnamentRule)
+			</div>
+		</div>
 	</section>
 	<div class="grid gap-10 lg:grid-cols-[2fr_1fr]" x-data="cart">
 		<div class="grid gap-10 sm:grid-cols-2">
@@ -15,7 +26,7 @@ templ Home(view HomeView) {
 				<div>
 					@components.Card(p.ImageFront, p.ImageBack, "/product/"+p.Slug, p.Title, p.Price)
 					if inStock(p) {
-						<form method="post" action="/cart/items" class="mt-3 flex items-end gap-2" x-on:submit.prevent="submit($event)">
+						<form method="post" action="/cart/items" class="mt-4 flex items-end gap-2" x-on:submit.prevent="submit($event)">
 							<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
 							<input type="hidden" name="qty" value="1"/>
 							<div class="flex-1">
@@ -24,7 +35,7 @@ templ Home(view HomeView) {
 							@components.Button(components.ButtonPrimary, "Add", templ.Attributes{"type": "submit"})
 						</form>
 					} else {
-						<p class="mt-3">
+						<p class="mt-4">
 							@components.Badge("sold out", components.ToneDanger)
 						</p>
 					}
@@ -32,7 +43,7 @@ templ Home(view HomeView) {
 			}
 		</div>
 		<aside>
-			<div id="cart-panel">
+			<div id="cart-panel" class="lg:sticky lg:top-28">
 				@CartFragment(view.Cart)
 			</div>
 		</aside>

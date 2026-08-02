@@ -9,8 +9,8 @@ import (
 // CartFragment is the server-rendered cart. Every cart mutation answers with
 // exactly this fragment: the browser holds no cart state.
 templ CartFragment(view CartView) {
-	<div class="border border-neutral-200 p-4">
-		<h2 class="mb-4 text-sm font-medium uppercase tracking-wide">Cart</h2>
+	<div class="border border-hair bg-surface p-5">
+		<h2 class="mb-4 text-xs font-medium uppercase tracking-ornament text-ink-muted">Cart</h2>
 		if view.Error != "" {
 			<div class="mb-4">
 				@components.Alert(components.ToneDanger, view.Error)
@@ -19,13 +19,13 @@ templ CartFragment(view CartView) {
 		if view.Cart.IsEmpty() {
 			@components.EmptyState("Your cart is empty", "Pick a size and add a tee.")
 		} else {
-			<ul class="divide-y divide-neutral-100">
+			<ul class="divide-y divide-hair/60">
 				for _, item := range view.Cart.Items {
 					<li class="flex items-start gap-3 py-3">
-						<img src={ item.ImageFront } alt={ item.ProductTitle } loading="lazy" class="h-16 w-16 object-contain"/>
+						<img src={ item.ImageFront } alt={ item.ProductTitle } loading="lazy" class="h-16 w-16 border border-hair bg-plate object-contain"/>
 						<div class="flex-1">
-							<p class="text-sm font-medium">{ item.ProductTitle }</p>
-							<p class="text-xs text-neutral-500">Size { item.Size }</p>
+							<p class="font-display text-base tracking-wide">{ item.ProductTitle }</p>
+							<p class="text-xs uppercase tracking-ornament text-ink-faint">Size { item.Size }</p>
 							<form
 								method="post"
 								action={ templ.SafeURL("/cart/items/" + item.ID.String()) }
@@ -40,10 +40,10 @@ templ CartFragment(view CartView) {
 									min="1"
 									max="10"
 									value={ strconv.Itoa(item.Qty) }
-									class="w-16 border border-neutral-300 px-2 py-1 text-sm"
+									class="w-16 border border-hair-strong bg-surface px-2 py-1 text-sm text-ink outline-none transition-colors duration-200 ease-soft focus:border-accent"
 									aria-label="Quantity"
 								/>
-								<button type="submit" class="text-xs uppercase underline">update</button>
+								<button type="submit" class="text-xs uppercase tracking-ornament text-ink-muted underline decoration-gold underline-offset-4 transition-colors duration-200 ease-soft hover:text-gold">update</button>
 							</form>
 						</div>
 						<div class="text-right">
@@ -56,39 +56,20 @@ templ CartFragment(view CartView) {
 							>
 								<input type="hidden" name="csrf_token" value={ view.CSRFToken }/>
 								<input type="hidden" name="_method" value="DELETE"/>
-								<button type="submit" class="text-xs uppercase text-neutral-400 underline">remove</button>
+								<button type="submit" class="text-xs uppercase tracking-ornament text-ink-faint underline underline-offset-4 transition-colors duration-200 ease-soft hover:text-danger-ink">remove</button>
 							</form>
 						</div>
 					</li>
 				}
 			</ul>
-			<dl class="mt-4 space-y-1 text-sm">
-				<div class="flex justify-between">
-					<dt class="text-neutral-500">Subtotal</dt>
-					<dd>
-						@components.Money(view.Subtotal)
-					</dd>
-				</div>
-				<div class="flex justify-between">
-					<dt class="text-neutral-500">Shipping</dt>
-					<dd>
-						@components.Money(view.Shipping)
-					</dd>
-				</div>
-				<div class="flex justify-between border-t border-neutral-200 pt-2 font-medium">
-					<dt>Total</dt>
-					<dd>
-						@components.Money(view.Total)
-					</dd>
-				</div>
-			</dl>
-			<a href="/checkout" class="mt-4 block bg-neutral-900 px-5 py-3 text-center text-sm text-white">Checkout</a>
+			@components.Totals(view.Subtotal, view.Shipping, view.Total)
+			<a href="/checkout" class="mt-5 block bg-accent px-5 py-3 text-center text-sm font-medium uppercase tracking-ornament text-accent-fg transition-opacity duration-200 ease-soft hover:opacity-90">Checkout</a>
 		}
 	</div>
 }
 
 templ CartPage(view CartView) {
-	<h1 class="mb-8 text-3xl font-semibold tracking-tight">Cart</h1>
+	<h1 class="mb-8 font-display text-4xl tracking-tight">Cart</h1>
 	<div class="max-w-xl" x-data="cart">
 		<div id="cart-panel">
 			@CartFragment(view)
