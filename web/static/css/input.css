@@ -52,21 +52,25 @@
  * against the field.
  */
 .shop {
-  --k-bg: 34 16 15;
-  --k-bg-deep: 24 10 9;
-  --k-surface: 45 21 19;
-  --k-surface-2: 56 26 23;
+  /* The channels are the §19.3 table read out in decimal: #1A0E0D, #120908,
+   * #241413, #2E1917, #E9DDC6, #F1E6D2, #BC9F86, #8A705E, #4A2A26, #C8964B. */
+  --k-bg: 26 14 13;
+  --k-bg-deep: 18 9 8;
+  --k-surface: 36 20 19;
+  --k-surface-2: 46 25 23;
   --k-plate: 233 221 198;
 
   --k-ink: 241 230 210;
   --k-ink-muted: 188 159 134;
   --k-ink-faint: 138 112 94;
 
-  --k-hair: 88 46 40;
-  --k-hair-strong: 120 62 54;
+  --k-hair: 74 42 38;
+  /* hair-strong is not in the §19.3 table: it is hair lifted far enough to read
+   * as the edge of an input rather than a divider. */
+  --k-hair-strong: 106 58 51;
 
   --k-accent: 200 150 75;
-  --k-accent-fg: 34 16 15;
+  --k-accent-fg: 26 14 13;
 
   --k-success-bg: 22 36 26;
   --k-success-ink: 159 203 164;
@@ -152,9 +156,12 @@
 }
 
 /*
- * The slogan ribbon, tech.md §19.6. The track holds the slogan twice and moves
- * by half its width, so the loop has no seam; the second copy is aria-hidden in
- * the markup, so the slogan is announced once.
+ * The slogan ribbon, tech.md §19.6. The track moves by half its width, so the
+ * second half lands where the first began and the loop has no seam. How many
+ * copies that half has to hold is decided in the markup, next to ribbonCopies:
+ * half a track must stay wider than the viewport, or the loop ends on a stretch
+ * of empty ribbon. Every copy but the first is aria-hidden, so the slogan is
+ * announced once.
  */
 .k-marquee {
   position: relative;
