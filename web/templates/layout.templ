@@ -13,21 +13,34 @@ templ head(p Page) {
 		<meta name="csrf-token" content={ p.CSRFToken }/>
 		<title>{ p.Title }</title>
 		<link rel="stylesheet" href="/static/css/app.css"/>
+		// Alpine starts itself in a microtask as soon as its own script has run,
+		// so every component has to be registered before that line. A deferred
+		// script placed further down the page - in a page body, say - executes
+		// after the start and its alpine:init listener is never called.
 		<script defer src="/static/js/cart.js"></script>
+		<script defer src="/static/js/order.js"></script>
 		<script defer src="/static/vendor/alpine.min.js"></script>
 	</head>
 }
 
-// ribbon is the scrolling slogan under the header, tech.md §19.6. The track
-// carries the line four times so two of them always outrun the widest viewport:
-// the animation shifts the track by exactly half its width, so the loop has no
-// seam. Only the first copy is readable to assistive technology - the rest are
-// the same words again and would be read four times over.
+// ribbon is the scrolling slogan under the header, tech.md §19.6.
+//
+// The animation shifts the track by exactly half its width, so the second half
+// lands where the first began and the loop has no seam. That only holds while
+// half a track is at least as wide as the viewport - otherwise the tail of the
+// cycle drags an empty stretch of ribbon across the screen. One copy of the
+// slogan measures about 740px, so the track carries eight of them: four per
+// half, near 3000px, which outruns any display this shop will be opened on.
+//
+// Only the first copy is readable to assistive technology - the rest are the
+// same words again and would be read eight times over.
+const ribbonCopies = 8
+
 templ ribbon() {
 	<div class="k-marquee border-y border-hair bg-bg-deep">
 		<div class="k-marquee-track animate-marquee py-2">
 			<span class="whitespace-nowrap px-6 text-[0.65rem] uppercase tracking-ornament text-gold">{ Slogan }</span>
-			for range 3 {
+			for range ribbonCopies - 1 {
 				<span aria-hidden="true" class="whitespace-nowrap px-6 text-[0.65rem] uppercase tracking-ornament text-gold">{ Slogan }</span>
 			}
 		</div>
