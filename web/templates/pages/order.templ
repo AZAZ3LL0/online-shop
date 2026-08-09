@@ -10,7 +10,6 @@ import (
 // server; the browser only polls it every ten seconds and reloads the page when
 // it changes, so there is one renderer of a status in the project (tech.md §7.1).
 templ OrderStatus(view OrderView) {
-	<script defer src="/static/js/order.js"></script>
 	<div class="max-w-2xl" x-data={ orderState(view) }>
 		<p class="text-xs uppercase tracking-ornament text-ink-muted">Order</p>
 		<h1 class="mb-4 font-display text-4xl tracking-tight">{ view.Order.Number }</h1>
